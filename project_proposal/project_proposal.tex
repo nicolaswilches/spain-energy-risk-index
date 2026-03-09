@@ -1,0 +1,682 @@
+%===============================================================
+%  Forecasting Systemic Tension — Grid Risk Index
+%  Group 8 | MLOps Proposal
+%  Overleaf-ready single-file project
+%===============================================================
+\documentclass[11pt, a4paper]{article}
+
+%---------------------------------------------------------------
+% Fonts & encoding
+%---------------------------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{helvet}                    % Arial-equivalent (Helvetica)
+\renewcommand{\familydefault}{\sfdefault}
+
+%---------------------------------------------------------------
+% Page layout
+%---------------------------------------------------------------
+\usepackage[
+  a4paper,
+  top=2.0cm, bottom=2.0cm,
+  left=2.0cm, right=2.0cm
+]{geometry}
+
+%---------------------------------------------------------------
+% Line spacing
+%---------------------------------------------------------------
+\usepackage{setspace}
+\setstretch{1.12}
+
+%---------------------------------------------------------------
+% Colours & graphics
+%---------------------------------------------------------------
+\usepackage[dvipsnames, table]{xcolor}
+\usepackage{graphicx}
+\usepackage{float}
+
+% Brand palette
+\definecolor{reeBlue}{HTML}{002566}
+\definecolor{reeLightBlue}{HTML}{003899}
+\definecolor{reeAccent}{HTML}{002f80}
+\definecolor{reeGray}{HTML}{F2F4F8}
+\definecolor{reeRed}{HTML}{C0392B}
+\definecolor{reeGreen}{HTML}{27AE60}
+\definecolor{reeOrange}{HTML}{E67E22}
+
+%---------------------------------------------------------------
+% Section formatting
+%---------------------------------------------------------------
+\usepackage{titlesec}
+\titleformat{\section}
+  {\large\bfseries\color{reeBlue}}{\thesection.}{0.6em}{}
+\titleformat{\subsection}
+  {\normalsize\bfseries\color{reeAccent}}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}
+  {\normalsize\itshape\color{black}}{\thesubsubsection}{0.6em}{}
+
+\titlespacing*{\section}{0pt}{1.0em}{0.4em}
+\titlespacing*{\subsection}{0pt}{0.7em}{0.3em}
+
+%---------------------------------------------------------------
+% Table of Contents
+%---------------------------------------------------------------
+\usepackage{tocloft}
+\renewcommand{\cftsecfont}{\bfseries\color{reeBlue}}
+\renewcommand{\cftsecpagefont}{\bfseries\color{reeBlue}}
+\renewcommand{\cftsubsecfont}{\color{reeBlue}}
+\setlength{\cftbeforesecskip}{4pt}
+\setlength{\cftbeforesubsecskip}{1pt}
+
+%---------------------------------------------------------------
+% Tables
+%---------------------------------------------------------------
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{array}
+\renewcommand{\arraystretch}{1.2}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+
+%---------------------------------------------------------------
+% TikZ diagrams
+%---------------------------------------------------------------
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning,
+                fit, backgrounds, shadows.blur, calc}
+
+%---------------------------------------------------------------
+% Hyperlinks & PDF metadata
+%---------------------------------------------------------------
+\usepackage[
+  colorlinks=true,
+  linkcolor=reeBlue,
+  urlcolor=reeAccent,
+  citecolor=reeBlue,
+  pdftitle={Grid Risk Index — MLOps Proposal},
+  pdfauthor={Group 8}
+]{hyperref}
+
+%---------------------------------------------------------------
+% Captions
+%---------------------------------------------------------------
+\usepackage[
+  font=small, labelfont=bf,
+  labelsep=period, skip=6pt
+]{caption}
+
+%---------------------------------------------------------------
+% Header / Footer (must be in preamble)
+%---------------------------------------------------------------
+\usepackage{fancyhdr}
+
+%---------------------------------------------------------------
+% Miscellaneous
+%---------------------------------------------------------------
+\usepackage{enumitem}
+\setlist[itemize]{noitemsep, topsep=2pt, leftmargin=1.6em}
+\setlist[enumerate]{noitemsep, topsep=2pt, leftmargin=1.6em}
+\usepackage{parskip}
+\setlength{\parskip}{3pt}
+\setlength{\parindent}{0pt}
+\usepackage{microtype}
+\usepackage{amsmath}
+\usepackage{nicefrac}
+
+%===============================================================
+%  Blue-hue sequential palette for pipeline diagram
+%===============================================================
+\definecolor{pBlue1}{HTML}{002566}   % darkest  — REE Data
+\definecolor{pBlue2}{HTML}{003E99}   % dark     — Feature Eng
+\definecolor{pBlue3}{HTML}{1A5DBF}   % medium   — GBT Model
+\definecolor{pBlue4}{HTML}{3A7FD4}   % medium-light — Risk Index
+\definecolor{pBlue5}{HTML}{5B9FE8}   % light    — Dashboard
+\definecolor{pBlue6}{HTML}{8CBFE8}   % lightest — Policy Digest
+
+%===============================================================
+%  TikZ node styles — pipeline diagram
+%===============================================================
+\tikzset{
+  pipeBox/.style={
+    rectangle, rounded corners=4pt,
+    minimum width=2.0cm, minimum height=1.cm,2
+    text width=1.9cm, align=center,
+    font=\small\bfseries,
+    draw=#1, fill=#1!14!white,
+    line width=0.8pt
+  },
+  pipeArrow/.style={
+    -{Stealth[length=8pt, width=4pt]},
+    line width=1.0pt, color=reeBlue!60
+  },
+  pipeLabel/.style={
+    font=\scriptsize\itshape, color=reeAccent,
+    above, yshift=18pt
+  }
+}
+
+%===============================================================
+\begin{document}
+%===============================================================
+
+%---------------------------------------------------------------
+%  COVER PAGE
+%---------------------------------------------------------------
+\begin{titlepage}
+\pagecolor{white}
+\color{reeBlue}
+
+\vspace*{7.5cm}
+\begin{center}
+
+  {\fontsize{22}{22}\selectfont\bfseries
+    Forecasting Systemic Tension:\\[0.3cm]
+    A Machine Learning Approach to Spain's\\[0.3cm]
+    Grid Risk  Index}\\[0.5cm]
+
+{\large Machine Learning Operations Project Proposal}\\[8pt]
+
+  \textcolor{reeBlue}{\rule{1.0\linewidth}{0.3pt}}\\[0.5cm]
+
+  {\bfseries Group 8:}
+    Alberto Cabezudo Rodr\'iguez, Madelyn Ehni, Gilles Hamers,\\
+    Nicol\'as Higuera Wilches, Salah Mneimne\\[2cm]
+\end{center}
+\end{titlepage}
+\nopagecolor
+
+%---------------------------------------------------------------
+%  TABLE OF CONTENTS
+%---------------------------------------------------------------
+\setcounter{page}{0}
+%\renewcommand{\cftsubsecpagefont}{\color{white}}
+%\renewcommand{\cftsubsecdotsep}{\cftnodots}
+\tableofcontents
+\thispagestyle{empty}
+\newpage
+
+%---------------------------------------------------------------
+%  HEADER / FOOTER
+%---------------------------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{gray}Grid Risk Index Project Proposal}
+\fancyfoot[C]{\small\color{reeBlue}\thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+\renewcommand{\footrulewidth}{0pt}
+
+%===============================================================
+\section{Executive Summary}
+%===============================================================
+
+The Spanish electrical grid operates under strict physical constraints,
+requiring constant, delicate balance between energy generation and demand
+to maintain frequency stability. Grid operators currently face a critical
+gap: the absence of strategic, day-ahead risk estimation. While static
+forecasts for demand and generation exist, they fail to quantify the
+overall \textit{systemic tension} the grid will face the following day.
+This exposes infrastructure to sudden shocks, particularly when inflexible
+generation cannot ramp up quickly enough to meet unexpected demand spikes
+or drops in renewable output.
+
+As the penetration of intermittent renewable energy sources deepens, the
+grid becomes increasingly volatile. Relying on isolated metrics, such as
+raw demand, without synthesizing them into a unified measure of systemic
+tension leaves the network vulnerable to costly, last-minute interventions
+or partial blackouts. The primary stakeholder is \textbf{Red Eléctrica de
+España (REE)}, the national transmission system operator, alongside energy policymakers at the Ministry for Ecological Transition and the CNMC. REE operations staff use the next-day risk score to plan flexible-source dispatch; policymakers use the weekly digest to identify recurring stress patterns and their infrastructure implications.
+
+We propose a predictive machine-learning framework that forecasts a
+\textbf{Next-Day ``Grid Risk Index.''}  This index synthesizes the
+expected-versus-actual mismatch in demand and generation alongside the
+scheduled flexibility ratio of the energy mix. By providing a clear,
+day-ahead forecast using daily-aggregated historical data, the system
+enables REE operators and policymakers to transition from reactive
+troubleshooting to proactive resource planning. The early-warning
+mechanism ensures uninterrupted energy supply, optimizes strategic-reserve
+dispatch, and reduces overall operational costs.
+
+%===============================================================
+\section{Business Case \& Objectives}
+%===============================================================
+
+\subsection{Business Case}
+
+The primary value of this project is \textbf{proactive risk management} for national energy infrastructure. As the electrical grid approaches maximum capacity, operators must rely on costly measures such as activating backup gas plants or reducing the power to industrial users. A preventive risk-forecasting system provides an early-warning mechanism, allowing REE to plan flexible-energy-source dispatch more efficiently, reducing operational costs and improving network-wide stability.
+
+\subsection{Project Objectives}
+
+The project aims to build a \textbf{Gradient Boosted Tree} model (a continuous regressor using the LightGBM framework) that predicts a Next-Day Grid Risk Index ranging from 0 (stable) to 1 (high systemic operational stress). The core objectives are the following:
+
+\begin{itemize}
+  \item \textbf{Minimize forecast error} (RMSE) so that predictions remain reliable for decision-makers.
+  \item \textbf{Prioritize interpretability} by exposing feature-importance metrics so operators understand which variables drive forecast risk.
+  \item \textbf{Simulate daily batch processing} using fixed historical datasets, removing infrastructure complexity and keeping focus on model quality.
+  \item \textbf{Meet latency requirements:} The full inference pipeline
+        (feature computation, index construction, and GBT prediction) must complete within five minutes to support REE's day-ahead scheduling window, which closes at 22:00~CET.
+  \item \textbf{Enable proactive management} transition from reactive troubleshooting to data-driven grid management, minimizing network impact, and avoiding emergency interventions.
+\end{itemize}
+
+\textbf{Explicit success criteria:} The primary technical success criterion is achieving an RMSE below~0.05 on the normalized 0--1 scale on the held-out chronological test set. This threshold will be confirmed after the baseline run in Days~4--6 and locked before GBT training begins. For operational interpretation, the next-day predicted risk scores are mapped into \textit{Low}, \textit{Medium}, and \textit{High} categories using validation-calibrated thresholds. The alerting quality of the \textit{High} category is assessed on data using recall and precision; recall is prioritized because failing to flag a genuinely \textit{High}-risk period has the greatest potential impact on grid stability. 
+
+These ML objectives directly support the business case: a model meeting the
+RMSE target reduces the frequency of costly last-minute interventions (such
+as emergency gas-plant activation), while recall-prioritized \textit{High}-category
+alerts ensure that the operationally most dangerous periods are never missed,
+directly lowering the risk of unplanned load shedding.
+
+%===============================================================
+\section{Scope, Constraints \& Risks}
+%===============================================================
+
+\subsection{In-Scope}
+
+\begin{itemize}
+  \item \textbf{Historical data:} Red Eléctrica provides public access to data for real, scheduled and programmed energy demand (MW), energy generation by source, energy storage, and CO$_2$ emissions (t\,CO$_2$\,eq/MWh) per source with a 5 minute frequency.
+  \item \textbf{REE demand forecast:} Used as an input feature capturing intraday scheduling deviations, contributing to the next-day risk prediction.
+  \item \textbf{Grid Risk Index:} Continuous composite score derived from operational stress variables. \textit{Low}, \textit{Medium}, and \textit{High} labels are applied to predicted outputs for operational interpretation.
+  \item \textbf{Driver attribution} per \textit{High} category, showing which signal dominates grid risk.
+  \item \textbf{Weekly policy digest} for Ministry and CNMC stakeholders: recurring risk patterns, dominant causes, and infrastructure implications.
+\end{itemize}
+
+\subsection{Out-of-Scope}
+Four related tasks are deliberately excluded. \textbf{Automatic dispatch} requires safety certification governed by REE's grid-code operating procedures, which fall outside this project's remit. \textbf{Price forecasting} requires OMIE wholesale market data under separate terms and represents a distinct problem with different stakeholders. \textbf{Sub-regional breakdown} requires network-topology data unavailable in the REE dataset. \textbf{Infrastructure investment decisions} remain with policy makers; this model provides evidence and risk signals, not capital-allocation directives.
+
+\subsection{Constraints}
+
+\begin{itemize}
+  \item \textbf{Data access:} The REE dataset is publicly available with
+        no API key, no authentication, and no rate limits; it is fixed for
+        the duration of this project to remove infrastructure complexity.
+  \item \textbf{Computation:} The model must run locally; no
+        cloud GPU instances or specialized hardware. LightGBM is selected precisely because it completes training and inference in seconds on a standard laptop CPU.
+  \item \textbf{Timeline:} 14 days to a demonstrable working model that
+        is honest about its scope.
+  \item \textbf{Labeling:} Labels are programmatically derived via PCA (see Section~4.2); no human annotation is required.
+\end{itemize}
+
+\subsection{Risks \& Trade-offs}
+
+Table~\ref{tab:risks} summarizes the four key risks identified, their
+potential impact, and the mitigation strategy adopted.
+
+\begin{table}[H]
+\caption{Identified risks, failure modes, and mitigation strategies.}
+\label{tab:risks}
+\small
+\setlength{\extrarowheight}{2pt}
+\begin{tabularx}{\linewidth}{
+  >{\bfseries\raggedright}P{3.5cm}
+  P{5.6cm}
+  P{5.6cm}}
+\rowcolor{reeBlue}
+\textcolor{white}{\textbf{Risk}} &
+\textcolor{white}{\textbf{What Could Go Wrong}} &
+\textcolor{white}{\textbf{Mitigation Strategy}} \\
+\rowcolor{reeGray}
+False Alarm Rate &
+If the model flags \textit{High} risk too often and those alerts prove
+incorrect, operators will stop paying attention, even real alerts get
+ignored. &
+\textit{Medium} acts as a buffer. \textit{High} triggers only above a
+set confidence threshold; borderline signals remain \textit{Medium} until
+the pattern is clear. \\
+
+Model Generalisation &
+Trained on historical data only, the model may learn period-specific
+patterns and perform poorly on future conditions, especially as Spain
+adds renewable capacity. &
+Strict temporal train/test split. Evaluate on the most recent data
+portion. Flag any feature whose importance shifts significantly as a
+signal for future retraining. \\
+
+\rowcolor{reeGray}
+Data Leakage &
+Adding features that rely on future information is easy. A model trained
+on leaked data performs well on assessments but fails in practice. &
+Automated leakage checking before every training job. If any feature's
+timestamp post-dates its label, training stops, no exceptions. \\
+
+Fixed Threshold Misreads Hour-of-Day Context &
+A fixed MW threshold for \textit{High} risk misclassifies periods where
+a smaller absolute gap is proportionally severe. &
+Gap is scored as a percentile rank within its hour-of-day distribution:
+proportional severity, not absolute MW. Stays adjusted as grid capacity
+grows. \\
+\rowcolor{reeGray}
+Label Bias &
+The GRI is derived from REE operational data, which may systematically
+understate stress during high-renewable periods due to reporting conventions
+or data smoothing at 5-minute aggregation. &
+Cross-reference GRI high-scoring periods against REE's published annual
+incident reports. Flag any systematic divergence between model-identified
+high-risk days and reported incidents as a label-quality issue before
+final evaluation. \\
+
+Scope Creep / Unrealistic Expectations &
+The 14-day timeline creates pressure to add features or outputs beyond
+the defined scope, risking an incomplete core deliverable. &
+Scope is frozen after Day~3. Any additions are logged as post-submission
+extensions and do not alter the evaluation targets defined in Section~2. \\
+\end{tabularx}
+\end{table}
+
+\subsection{Anticipated Trade-offs}
+
+Two trade-offs have been explicitly evaluated in the design of this system.
+First, \textbf{recall vs.\ precision for the \textit{High} class}: failing to flag a
+genuinely high-risk period exposes the grid to unplanned emergency
+interventions, whereas a false alarm causes operators to mobilize reserve
+capacity unnecessarily. Because the cost of a missed event exceeds the cost
+of a false alarm in this operational context, recall is prioritized over
+precision for the \textit{High} category (see success criteria in Section~2).
+Second, \textbf{interpretability vs.\ accuracy}: more powerful but opaque
+ensemble methods (e.g.\ stacked deep learning models) were considered and
+rejected because REE operators require auditable, feature-level explanations
+for each prediction before acting on it. LightGBM is selected in part
+because it provides this transparency at a modest and acceptable cost to
+predictive accuracy.
+
+%===============================================================
+\section{Data Plan}
+%===============================================================
+
+This project relies exclusively on publicly available data from REE, ensuring \textbf{transparency, reproducibility, and institutional reliability}. The dataset includes near-real-time demand, day-ahead forecasts, and generation by source (wind, solar, hydro, combined-cycle gas turbines, nuclear) at five-minute resolution. The goal is not merely to compile raw variables but to transform them into interpretable indicators of systemic stress, reflecting both the grid's exposure to imbalance and its capacity to respond.
+
+\subsection{Feature Engineering}
+
+Three core features operationalize the concept of systemic stress:
+
+\begin{enumerate}
+  \item \textbf{Flexibility Share:} The proportion of total generation
+        from dispatchable and adaptable sources (combined-cycle gas
+        turbines and hydroelectric plants).  Defined as $\text{FlexShare}_t = \nicefrac{G^{\text{flex}}_t}{G^{\text{total}}_t}$. A lower value signals reduced adaptive capacity.
+
+  \item \textbf{Demand Forecast Error:} Quantifies deviation between
+        expected and actual demand, computed as
+        $\varepsilon_t = D^{\text{actual}}_t - D^{\text{forecast}}_t$. When realized demand exceeds forecasts, additional generation must be activated in real time, increasing system strain.
+
+  \item \textbf{Net Load} captures structural pressure on dispatchable generation, defined as $\text{NetLoad}_t = D^{\text{actual}}_t - (G^{\text{wind}}_t + G^{\text{solar}}_t)$. Rapid changes (\textit{ramps}) in net load reflect sudden increases in the burden placed on flexible resources.
+\end{enumerate}
+
+\subsection{Data Quality \& Integrity}
+
+Although REE data are institutionally robust, missing values or reporting inconsistencies may occur during atypical conditions. The pipeline implements: \textbf{(i)} \textbf{temporal alignment} and consistency checks; \textbf{(ii)} \textbf{percentile-based proxy labels} for extreme operational states, avoiding direct reliance on rare blackout events; \textbf{(iii)} \textbf{class-imbalance} monitoring; and \textbf{(iv)} \textbf{strict temporal integrity} with chronological data splits to prevent leakage. Regarding \textbf{representativeness}, Spain's generation mix has shifted significantly over the dataset's time span; the model is therefore trained on the most recent data portion only, with performance evaluated on the latest held-out window. Regarding \textbf{systematic bias}, 5-minute aggregates smooth sub-minute frequency deviations that can precede stress events, a known resolution limitation. \textbf{Labeling} is entirely programmatic: the GRI is derived via PCA (Section~5.1) with no human annotation. The key challenge is that label quality depends on the input variable selection; to surface this, PCA weights are reported alongside the model and GRI values above the \textit{High} threshold are cross-referenced against REE's published annual incident reports. Divergences between model-identified high-risk days and reported incidents are documented as labeling uncertainty rather than treated as model error.
+
+
+
+%===============================================================
+\section{Modelling Approach}
+%===============================================================
+
+The modeling strategy follows a two-stage approach: first building the composite Grid Risk Index, then training a short-term forecasting model on that index.
+
+\subsection{Index Construction}
+
+The Grid Risk Index is derived from the three main variables described in Section~4. To avoid arbitrary weight assignment, \textbf{Principal Component Analysis (PCA)} is applied to the standardized variables. The eigenvector associated with the largest eigenvalue (PC1) provides interpretable data-driven weights. These weights are normalized and used to produce a composite risk score $r_t \in [0, 1]$. PCA is estimated on training data only to prevent forward-looking bias.
+
+\subsection{Forecasting Framework}
+
+The forecasting task is formulated as a supervised learning problem:
+predict $r_{t+1\text{day}}$ using only information available up to time
+$t$. Three candidate models are evaluated in sequence before a final
+selection is made.
+
+\begin{enumerate}
+  \item \textbf{Ridge Regression} serves as the primary interpretable
+        baseline: linear, fast, and fully auditable. It establishes
+        whether the relationship between lagged stress indicators and
+        next-day risk is sufficiently linear to require no further
+        complexity.
+  \item \textbf{Random Forest Regressor} tests whether tree-based
+        ensembles improve on the linear baseline without the sequential
+        boosting overhead. It also provides a second source of
+        feature-importance estimates for cross-validation.
+  \item \textbf{Gradient Boosted Trees (GBT) via LightGBM} (Ke et al.,
+        2017) is the primary candidate, selected if it consistently
+        outperforms the two simpler candidates in the held-out
+        chronological test set by the margin defined in Section~2.
+        \textbf{LightGBM captures nonlinear interactions} without strong parametric
+        assumptions, trains sequentially so that each tree corrects prior
+        residuals, and provides split-based feature-importance scores
+        natively, allowing operators to identify which variable drove
+        each \textit{high-risk} prediction. \textbf{Interpretability} is required
+        at this stage because REE operators must understand the dominant
+        driver of a risk alert before committing to a dispatch decision.
+\end{enumerate}
+
+A \textbf{persistence baseline} (next-day risk = current-day value) is
+used as the minimum usefulness threshold. The GBT model is considered
+useful only if it achieves an RMSE at least 15\% lower than the
+persistence baseline on the chronological test set \textit{and} recall for
+the \textit{High} class exceeds 70\%. A model failing either condition is not
+considered production-ready regardless of its absolute RMSE.
+
+\subsection{Model Evaluation}
+
+Performance is assessed on two levels:
+
+\begin{itemize}
+  \item \textbf{Continuous output:} Evaluated with RMSE and MAE on a strictly held-out chronological test set.
+  \item \textbf{Categorical threshold layer:} Applied post-hoc to the continuous output; evaluated using precision and recall for the \textit{High} class. \textbf{Recall is the primary metric}: failing to detect a genuine \textit{High}-risk period is the most operationally dangerous outcome.
+\end{itemize}
+
+%===============================================================
+\section{System Preview \& Project Plan}
+%===============================================================
+
+%---------------------------------------------------------------
+%  CLEAN MLOPS PIPELINE (labels to the right on two arrows)
+%---------------------------------------------------------------
+\begin{figure}[H]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[node distance=1.4cm and 2.4cm]
+
+% =======================
+% TRAINING
+% =======================
+\node[pipeBox=pBlue1, text width=3cm] (source)
+{Data Source\\[-2pt]{\scriptsize REE (Spain)}};
+
+\node[pipeBox=pBlue2, below=1.2cm of source, text width=3.3cm] (trainData)
+{Training Data\\[-2pt]{\scriptsize demand, generation by tech, forecasts}};
+
+\node[pipeBox=pBlue2, right=2.6cm of trainData, text width=3.5cm] (feat)
+{Feature Engineering\\[-2pt]{\scriptsize FlexShare, Error, NetLoad, lags}};
+
+\node[pipeBox=pBlue3, right=2.6cm of feat, text width=3cm] (score)
+{Risk Score\\[-2pt]{\scriptsize PCA weights (train / fixed)}};
+
+\node[pipeBox=pBlue3, right=2.6cm of score, text width=3.2cm] (train)
+{Model Training\\[-2pt]{\scriptsize GBT (LightGBM)}};
+
+\node[pipeBox=pBlue4, below=1.2cm of train, text width=3.2cm] (tracking)
+{Model Tracking\\[-2pt]{\scriptsize MLflow (runs, metrics)}};
+
+\node[pipeBox=pBlue4, right=2.6cm of train, text width=3.2cm] (artifact)
+{Model Artifact\\[-2pt]{\scriptsize trained model + preprocessing}};
+
+% =======================
+% DEPLOYMENT
+% =======================
+\node[pipeBox=pBlue6, right=2.8cm of artifact, text width=3cm] (docker)
+{Docker Image\\[-2pt]{\scriptsize packaged runtime}};
+
+\node[pipeBox=pBlue6, right=2.6cm of docker, text width=3cm] (api)
+{Model API Endpoint\\[-2pt]{\scriptsize FastAPI prediction service}};
+
+% =======================
+% MONITORING
+% =======================
+\node[pipeBox=pBlue2, above=1.6cm of train, text width=3.4cm] (prod)
+{Production Data\\[-2pt]{\scriptsize live stream + predictions}};
+
+\node[pipeBox=pBlue3, right=2.6cm of prod, text width=3.2cm] (monitor)
+{Model Monitoring\\[-2pt]{\scriptsize drift + error checks}};
+
+% =======================
+% MAIN FLOW
+% =======================
+% Data Source -> Training Data (label to the RIGHT of the arrow)
+\draw[pipeArrow]
+  (source) -- node[pos=1, pipeLabel, anchor=west, xshift=6pt]{ingest} (trainData);
+
+\draw[pipeArrow] (trainData) -- node[pipeLabel]{clean/align} (feat);
+\draw[pipeArrow] (feat) -- node[pipeLabel]{drivers} (score);
+\draw[pipeArrow] (score) -- node[pipeLabel]{target (future horizon)} (train);
+
+\draw[pipeArrow] (train) -- node[pipeLabel]{export} (artifact);
+
+% Model Training -> Tracking 
+\draw[pipeArrow]
+  (train) -- node[pos=1, pipeLabel, anchor=west, xshift=6pt]{log} (tracking);
+
+\draw[pipeArrow] (artifact) -- node[pipeLabel]{package} (docker);
+\draw[pipeArrow] (docker) -- node[pipeLabel]{deploy} (api);
+
+% =======================
+% MONITORING FLOW
+% =======================
+\draw[pipeArrow] (prod) -- node[pipeLabel]{metrics} (monitor);
+
+\coordinate (busTop) at ($(monitor.north)+(0,0.9)$);
+\coordinate (apiUp)  at ($(api.north)+(0,0.35)$);
+
+\draw[pipeArrow]
+  (api.north) -- (apiUp)
+  -- ($(apiUp |- busTop)$)
+  -- ($(prod.north |- busTop)$)
+  -- (prod.north);
+
+% =======================
+% BACKGROUND GROUPING + TITLES
+% =======================
+\begin{scope}[on background layer]
+  \node[fill=white, rounded corners=8pt, inner sep=10pt,
+        fit=(source)(trainData)(feat)(score)(train)(tracking)(artifact)] (bgTrain) {};
+  \node[fill=white, rounded corners=8pt, inner sep=10pt,
+        fit=(docker)(api)] (bgDeploy) {};
+  \node[fill=white, rounded corners=8pt, inner sep=10pt,
+        fit=(prod)(monitor)] (bgMon) {};
+
+  \node[font=\bfseries, color=reeAccent, above left=2pt and 2pt of bgTrain.north west] {Training};
+  \node[font=\bfseries, color=reeAccent, above left=2pt and 2pt of bgMon.north west] {Monitoring};
+  \node[font=\bfseries, color=reeAccent, above left=2pt and 2pt of bgDeploy.north west] {Deployment};
+\end{scope}
+
+\end{tikzpicture}%
+}
+\caption{End-to-end MLOps pipeline for short-term grid risk forecasting.}
+\label{fig:mlops_pipeline_clean_final}
+\end{figure}
+
+\subsection{Timeline}
+
+This is a 14-day proof of concept. The scope is intentionally honest: the
+model will run, produce real predictions, and be fully demonstrable.
+Table~\ref{tab:timeline} details deliverables and done-criteria per phase.
+
+\begin{table}[H]
+\caption{14-day project timeline with deliverables and completion criteria.}
+\label{tab:timeline}
+\small
+\setlength{\extrarowheight}{2pt}
+\begin{tabularx}{\linewidth}{
+  C{1.5cm}
+  P{6.6cm}
+  P{6.6cm}}
+
+\rowcolor{reeBlue}
+\textcolor{white}{\textbf{Days}} &
+\textcolor{white}{\textbf{What Gets Done}} &
+\textcolor{white}{\textbf{Done When\ldots}} \\
+
+\rowcolor{reeGray}
+\textbf{1 -- 3} &
+Download REE dataset, load all feeds, and merge into a single clean
+table. Compute the Grid Risk Index for the first
+time; check label balance and adjust thresholds if needed. &
+Clean merged dataset produced. Confirmed label balance. \\
+
+\textbf{4 -- 6} &
+Feature-engineering pipeline: lag features, velocity, cyclical encoding.
+Leakage unit test written and passing. Baselines trained and benchmarked. &
+Baseline scores documented. Leakage checks pass. No open blockers
+entering week two. \\
+
+\rowcolor{reeGray}
+\textbf{7 -- 9} &
+GBT trained on time-based split. Threshold adjustment for \textit{High} precision/recall balance. RMSE computed on continuous score. & Model beats baseline. Risk Analysis and Classification produced. \\
+
+\textbf{10 -- 13} &
+Streamlit dashboard built on held-out predictions. Policy digest
+assembled from real model output. Full demo rehearsed as a team before
+day 13 ends. &
+Dashboard works. Someone outside the team understands it without
+instruction. Report complete. Demo runs cleanly. \\
+
+\rowcolor{reeGray}
+\textbf{14} &
+Final submission. &
+All artefacts submitted. \\
+
+\end{tabularx}
+\end{table}
+
+\subsection{Team Roles}
+
+\begin{itemize}
+  \item \textbf{Nicolás \& Salah:} Data preparation, feature store, and
+        leakage checks; verify data cleanliness before training begins.
+  \item \textbf{Alberto \& Gilles:} Modelling: GBT training,
+        threshold adjustment, and evaluation metrics.
+  \item \textbf{Madelyn:} Streamlit application and policy digest template.
+  \item \textbf{All members:} Report writing, with cross-review of all
+        figures and results before finalisation.
+\end{itemize}
+
+%===============================================================
+%  REFERENCES
+%===============================================================
+\newpage
+\section*{References}
+\addcontentsline{toc}{section}{References}
+
+\begingroup
+\setstretch{1.0}
+\small
+
+\noindent
+Red Eléctrica de España. (2022). \textit{Procedimientos de operación del
+sistema eléctrico: P.O. 1.1 -- Criterios generales de operación del
+sistema}. REE.
+\url{https://www.ree.es/es/actividades/operacion-del-sistema-electrico/procedimientos-de-operacion}
+
+\smallskip\noindent
+Ke, G., Meng, Q., Finley, T., Wang, T., Chen, W., Ma, W., Ye, Q., \&
+Liu, T.-Y. (2017). LightGBM: A highly efficient gradient boosting
+decision tree. In \textit{Advances in Neural Information Processing
+Systems} (Vol.~30). Curran Associates.
+\url{https://proceedings.neurips.cc/paper/2017/hash/6449f44a102fde848669bdd9eb6b76fa-Abstract.html}
+
+\smallskip\noindent
+Lago, J., Ridder, F. D., Vrancx, P., \& De Schutter, B. (2018).
+Forecasting day-ahead electricity prices in Europe: The importance of
+considering market integration. \textit{Applied Energy}, \textit{211},
+890--903. \url{https://doi.org/10.1016/j.apenergy.2017.11.098}
+
+\smallskip\noindent
+Red Eléctrica de España. (2024). \textit{REData API: Real-time
+electricity demand and generation data portal}. REE.
+\url{https://www.ree.es/en/apidatos}
+
+\smallskip\noindent
+Red Eléctrica de España. (2024). \textit{Informe del sistema eléctrico
+español 2023}. REE.
+\url{https://www.ree.es/es/datos/publicaciones/informe-anual-sistema/informe-del-sistema-electrico-espanol-2023}
+
+\endgroup
+
+\end{document}

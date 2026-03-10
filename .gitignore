@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+.venv/
+
+# Data outputs
+data/*.parquet
+data/*.csv
+data/artifacts/
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# uv
+uv.lock

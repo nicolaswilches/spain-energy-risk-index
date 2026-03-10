@@ -1,0 +1,23 @@
+[project]
+name = "spain-energy-risk-index"
+version = "0.1.0"
+description = "Spain Energy Grid Risk Index — hourly risk forecasting with LightGBM"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.27",
+    "pandas>=2.2",
+    "pyarrow>=17",
+    "tenacity>=9",
+    "python-dotenv>=1.0",
+    "tqdm>=4.66",
+    "python-dateutil>=2.9",
+    "scikit-learn>=1.5",
+    "joblib>=1.4",
+]
+
+[project.optional-dependencies]
+notebooks = [
+    "jupyter>=1.0",
+    "plotly>=5.22",
+    "matplotlib>=3.9",
+]

@@ -1,4 +1,4 @@
-"""JSON response → DataFrame extractors for each data category."""
+"""JSON response -> DataFrame extractors for each data stream (daily pipeline)."""
 
 from __future__ import annotations
 
@@ -6,9 +6,17 @@ import logging
 
 import pandas as pd
 
-from grid_risk.config import REE_DEMAND_TITLES, REE_GENERATION_TITLES
+from grid_risk.config import (
+    REE_DEMAND_TITLES,
+    REE_GENERATION_TITLES,
+    REE_SPOT_TITLE,
+    WEATHER_DAILY_VARS,
+)
 
 logger = logging.getLogger(__name__)
+
+
+# -- REE helpers --------------------------------------------------------------
 
 
 def _parse_ree_series(
@@ -26,10 +34,12 @@ def _parse_ree_series(
             if title.strip().lower() != target_title.strip().lower():
                 continue
             for val in attrs.get("values", []):
-                records.append({
-                    "datetime": val["datetime"],
-                    col_name: val["value"],
-                })
+                records.append(
+                    {
+                        "datetime": val["datetime"],
+                        col_name: val["value"],
+                    }
+                )
             break  # only first matching series per chunk
 
     if not records:
@@ -42,11 +52,14 @@ def _parse_ree_series(
     return df
 
 
-def extract_demand(responses: list[dict]) -> pd.DataFrame:
-    """Parse REE demanda-tiempo-real → DataFrame with actual + forecast demand.
+# -- Stream A: REE Demand (hourly -> daily) -----------------------------------
 
-    The endpoint returns 5-min data with series: Real, Forecasted, Scheduled.
-    We extract Real and Forecasted, then resample to hourly means.
+
+def extract_demand_daily(responses: list[dict]) -> pd.DataFrame:
+    """Parse REE demand (hourly) -> resample to daily mean MW.
+
+    Returns a DataFrame indexed by date with columns:
+    actual_demand_mw, forecast_demand_mw.
     """
     dfs: list[pd.DataFrame] = []
 
@@ -64,20 +77,24 @@ def extract_demand(responses: list[dict]) -> pd.DataFrame:
     for df in dfs[1:]:
         merged = merged.merge(df, on="datetime", how="outer")
 
-    # Resample 5-min data to hourly means
+    # Resample hourly -> daily mean
     merged = merged.set_index("datetime").sort_index()
-    merged = merged.resample("h").mean()
-    merged = merged.reset_index()
+    merged = merged.resample("D").mean()
+    merged.index = merged.index.date  # type: ignore[assignment]
+    merged.index.name = "date"
 
-    logger.info("Demand extracted: %d hourly rows", len(merged))
+    logger.info("Demand extracted: %d daily rows", len(merged))
     return merged
 
 
-def extract_generation_mix(responses: list[dict]) -> pd.DataFrame:
-    """Parse REE generation mix (daily) → DataFrame with one column per technology + total.
+# -- Stream A: REE Generation (daily native) ----------------------------------
 
-    The generation endpoint only supports daily granularity. Values represent
-    daily averages in MW for each technology.
+
+def extract_generation_daily(responses: list[dict]) -> pd.DataFrame:
+    """Parse REE generation mix (daily) -> DataFrame with one col per tech + total.
+
+    The generation endpoint returns daily MWh values. We convert to daily mean
+    MW by dividing by 24 so units are consistent with demand.
     """
     tech_map = REE_GENERATION_TITLES
     dfs: list[pd.DataFrame] = []
@@ -91,73 +108,81 @@ def extract_generation_mix(responses: list[dict]) -> pd.DataFrame:
         logger.warning("No generation data extracted")
         return pd.DataFrame()
 
-    # Merge all tech columns on datetime
     merged = dfs[0]
     for df in dfs[1:]:
         merged = merged.merge(df, on="datetime", how="outer")
 
-    # Compute total generation from columns that were actually extracted
-    gen_cols = [c for c in tech_map.keys() if c in merged.columns]
+    merged = merged.set_index("datetime").sort_index()
+
+    # Convert MWh -> daily mean MW (divide by 24)
+    gen_cols = [c for c in tech_map if c in merged.columns]
+    for col in gen_cols:
+        merged[col] = merged[col] / 24.0
+
+    # Total generation
     merged["gen_total_mw"] = merged[gen_cols].sum(axis=1)
+
+    # Convert to date index (REE daily timestamps are CET midnight)
+    merged.index = merged.index.tz_convert("Europe/Madrid").date  # type: ignore[assignment]
+    merged.index.name = "date"
+
+    # Deduplicate (DST transitions may create two entries per day)
+    merged = merged[~merged.index.duplicated(keep="first")]
 
     logger.info("Generation extracted: %d daily rows", len(merged))
     return merged
 
 
-def broadcast_daily_to_hourly(
-    daily_df: pd.DataFrame,
-    hourly_index: pd.DatetimeIndex,
-) -> pd.DataFrame:
-    """Broadcast daily generation values to each hour of that day.
-
-    Each hour gets the daily average MW value for its date.
-    Matching uses CET dates (Europe/Madrid) since REE daily data represents
-    calendar days in Spanish local time.
-    """
-    if daily_df.empty:
-        return pd.DataFrame(index=hourly_index)
-
-    daily_df = daily_df.copy()
-    if "datetime" in daily_df.columns:
-        daily_df = daily_df.set_index("datetime")
-
-    # Convert daily timestamps to CET date for matching
-    daily_df["_cet_date"] = daily_df.index.tz_convert("Europe/Madrid").date
-    daily_df = daily_df.set_index("_cet_date")
-    daily_df = daily_df[~daily_df.index.duplicated(keep="first")]
-
-    # Create hourly frame and match by CET calendar date
-    hourly = pd.DataFrame(index=hourly_index)
-    hourly["_cet_date"] = hourly.index.tz_convert("Europe/Madrid").date
-
-    for col in daily_df.columns:
-        date_map = daily_df[col].to_dict()
-        hourly[col] = hourly["_cet_date"].map(date_map)
-
-    hourly = hourly.drop(columns=["_cet_date"])
-    return hourly
+# -- Stream D: REE Spot Price (hourly -> daily) -------------------------------
 
 
-def extract_esios_forecast(
-    responses: list[dict],
-    col_name: str,
-) -> pd.DataFrame:
-    """Parse ESIOS indicator responses → DataFrame with given column name."""
-    records: list[dict] = []
+def extract_spot_price_daily(responses: list[dict]) -> pd.DataFrame:
+    """Parse REE spot market price (hourly) -> resample to daily mean EUR/MWh."""
+    df = _parse_ree_series(
+        responses,
+        target_title=REE_SPOT_TITLE,
+        col_name="spot_price_eur_mwh",
+    )
+
+    if df.empty:
+        logger.warning("No spot price data extracted")
+        return pd.DataFrame()
+
+    df = df.set_index("datetime").sort_index()
+    df = df.resample("D").mean()
+    df.index = df.index.date  # type: ignore[assignment]
+    df.index.name = "date"
+
+    logger.info("Spot price extracted: %d daily rows", len(df))
+    return df
+
+
+# -- Stream B: Open-Meteo Weather (daily native) -----------------------------
+
+
+def extract_weather_daily(responses: list[dict]) -> pd.DataFrame:
+    """Parse Open-Meteo archive responses -> DataFrame with weather columns."""
+    all_records: list[dict] = []
 
     for resp in responses:
-        indicator = resp.get("indicator", {})
-        for val in indicator.get("values", []):
-            records.append({
-                "datetime": val["datetime"],
-                col_name: val["value"],
-            })
+        daily = resp.get("daily", {})
+        times = daily.get("time", [])
+        if not times:
+            continue
+        for i, dt_str in enumerate(times):
+            row: dict = {"date": dt_str}
+            for var in WEATHER_DAILY_VARS:
+                vals = daily.get(var, [])
+                row[var] = vals[i] if i < len(vals) else None
+            all_records.append(row)
 
-    if not records:
-        logger.warning("No ESIOS data found for '%s'", col_name)
-        return pd.DataFrame(columns=["datetime", col_name])
+    if not all_records:
+        logger.warning("No weather data extracted")
+        return pd.DataFrame()
 
-    df = pd.DataFrame(records)
-    df["datetime"] = pd.to_datetime(df["datetime"], utc=True)
-    df = df.groupby("datetime", as_index=False).first()
+    df = pd.DataFrame(all_records)
+    df["date"] = pd.to_datetime(df["date"]).dt.date
+    df = df.drop_duplicates(subset=["date"]).set_index("date").sort_index()
+
+    logger.info("Weather extracted: %d daily rows", len(df))
     return df

@@ -62,18 +62,24 @@ Engineer the features the model will use to predict the target:
 
 ---
 
-## 4. Phase 3: Model Training & Evaluation
+## 4. Phase 3: Model Training & Evaluation (Asymmetric Strategy)
 
-**Objective:** Train LightGBM to map features $X$ to target $Y$ and track experiments using MLflow locally.
+**Objective:** Train LightGBM with **quantile regression (α=0.90)** — the model predicts the 90th percentile of risk, making it pessimistic because missing a blackout (FN) costs 10× more than a false alarm (FP). Standard RMSE is demoted; four custom business metrics drive evaluation.
 
-* **Baselines:** Train a Persistence baseline ($t_{+24} = t_{0}$) and a Ridge Regression model. Document RMSE.
+* **Baselines:** Persistence baseline ($t_{+24} = t_{0}$) and Ridge Regression. Document RMSE/MAE for reference.
 * **LightGBM Configuration:**
-  * Train a LightGBM Regressor on the Train Set.
-  * Use the Validation Set to tune hyperparameters, specifically utilizing `reg_alpha` (L1) and `reg_lambda` (L2) to perform automatic feature selection and prune low-importance features.
-* **Evaluation:**
-  * Evaluate final performance on the strictly held-out Test Set.
-  * Primary Metrics: Continuous RMSE (must beat baseline by >15%) and Categorical Recall for the *High* risk class (>70%).
-  * Log models, parameters, and metrics in local MLflow.
+  * **Objective:** `quantile` with `alpha=0.90` (not standard `regression`)
+  * 1000 estimators, lr=0.05, 31 leaves, early stopping (patience=50)
+  * Optuna hyperparameter tuning (30 trials) minimizing **validation quantile loss** (not RMSE)
+  * Search space: `reg_alpha`, `reg_lambda` (log 1e-3..10), `num_leaves` (15..63), `learning_rate` (0.01..0.1), `min_child_samples` (10..50)
+* **4 Business Metrics (Primary):**
+  * **A. Peak Window Accuracy (±1h):** % of days where predicted peak hour is within ±1h of actual
+  * **B. Cost Matrix Penalty:** FN(High) = 10 pts, FP(High) = 1 pt — total penalty (must beat persistence)
+  * **C. F₃ Score (High class):** F-beta with β=3, recall weighted 9× over precision (target: >0.70)
+  * **D. RMSE Skill Score:** % improvement over persistence (expected negative for quantile model — by design)
+* **Standard Metrics (Secondary):** RMSE, MAE, R² — tracked for reference but not optimized
+* **Artifact Tracking:** `metrics.json` + joblib artifacts (MLflow dropped — lightweight file-based tracking suffices)
+* **CLI:** `scripts/train_model.py --n-trials 30 --quantile-alpha 0.90 [--skip-tuning]`
 
 ---
 

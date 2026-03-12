@@ -1,4 +1,4 @@
-"""HTTP clients for REE public API and ESIOS API."""
+"""HTTP clients for REE public API and Open-Meteo API (daily pipeline)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ from datetime import date, timedelta
 from typing import Any
 
 import httpx
-from dateutil.relativedelta import relativedelta
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -20,20 +19,32 @@ from tqdm import tqdm
 from grid_risk.config import (
     REE_BASE_URL,
     REE_GEO_LIMIT,
-    ESIOS_BASE_URL,
-    ESIOS_GEO_ID,
+    OPEN_METEO_ARCHIVE_URL,
+    WEATHER_LAT,
+    WEATHER_LON,
+    WEATHER_TIMEZONE,
+    WEATHER_DAILY_VARS,
 )
 
 logger = logging.getLogger(__name__)
 
-# REE demand endpoint returns 5-min data; 14-day chunks keep response sizes sane
-_DEMAND_CHUNK_DAYS = 14
-# Generation endpoint only works daily; month chunks are fine
-_GENERATION_CHUNK_DAYS = 31
+# REE demand/spot endpoints return hourly data; 14-day chunks keep sizes sane
+_HOURLY_CHUNK_DAYS = 14
+# Generation endpoint is daily; month chunks are fine
+_DAILY_CHUNK_DAYS = 31
+# Open-Meteo archive supports up to ~1 year per request
+_WEATHER_CHUNK_DAYS = 365
 
 
-def _fixed_day_chunks(start: date, end: date, days: int) -> list[tuple[date, date]]:
-    """Split a date range into chunks of at most `days` days."""
+# -- Chunking helpers ---------------------------------------------------------
+
+
+def _fixed_day_chunks(
+    start: date,
+    end: date,
+    days: int,
+) -> list[tuple[date, date]]:
+    """Split a date range into chunks of at most *days* days."""
     chunks: list[tuple[date, date]] = []
     cursor = start
     while cursor <= end:
@@ -43,15 +54,7 @@ def _fixed_day_chunks(start: date, end: date, days: int) -> list[tuple[date, dat
     return chunks
 
 
-def _quarter_chunks(start: date, end: date) -> list[tuple[date, date]]:
-    """Split a date range into ~90-day chunks for ESIOS."""
-    chunks: list[tuple[date, date]] = []
-    cursor = start
-    while cursor <= end:
-        chunk_end = min(cursor + relativedelta(months=3) - relativedelta(days=1), end)
-        chunks.append((cursor, chunk_end))
-        cursor = chunk_end + relativedelta(days=1)
-    return chunks
+# -- REE Client ---------------------------------------------------------------
 
 
 class REEClient:
@@ -83,7 +86,9 @@ class REEClient:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=2, min=2, max=30),
-        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.TransportError)),
+        retry=retry_if_exception_type(
+            (httpx.HTTPStatusError, httpx.TransportError),
+        ),
         reraise=True,
     )
     def _get(self, endpoint: str, params: dict[str, str]) -> dict:
@@ -115,39 +120,78 @@ class REEClient:
             try:
                 data = self._get(endpoint, params)
                 responses.append(data)
-            except (httpx.HTTPStatusError, httpx.TransportError) as e:
+            except (httpx.HTTPStatusError, httpx.TransportError) as exc:
                 logger.warning(
-                    "REE %s chunk %s→%s failed: %s", endpoint, chunk_start, chunk_end, e
+                    "REE %s chunk %s->%s failed: %s",
+                    endpoint,
+                    chunk_start,
+                    chunk_end,
+                    exc,
                 )
         return responses
 
-    def fetch_demand(self, endpoint: str, start: date, end: date, label: str = "demand") -> list[dict]:
-        """Fetch demand endpoint (5-min data) in 14-day chunks."""
-        return self._fetch_chunks(endpoint, start, end, _DEMAND_CHUNK_DAYS, "hour", label)
-
-    def fetch_generation(self, endpoint: str, start: date, end: date, label: str = "generation") -> list[dict]:
-        """Fetch generation endpoint (daily only) in month-sized chunks."""
-        return self._fetch_chunks(endpoint, start, end, _GENERATION_CHUNK_DAYS, "day", label)
-
-
-class ESIOSClient:
-    """Client for the ESIOS API (api.esios.ree.es). Requires auth token."""
-
-    def __init__(self, token: str, timeout: float = 30.0):
-        self._client = httpx.Client(
-            base_url=ESIOS_BASE_URL,
-            timeout=timeout,
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-                "Authorization": f"Token token={token}",
-            },
+    def fetch_demand_hourly(
+        self,
+        endpoint: str,
+        start: date,
+        end: date,
+    ) -> list[dict]:
+        """Fetch demand endpoint (hourly) in 14-day chunks."""
+        return self._fetch_chunks(
+            endpoint,
+            start,
+            end,
+            _HOURLY_CHUNK_DAYS,
+            "hour",
+            "demand",
         )
+
+    def fetch_generation_daily(
+        self,
+        endpoint: str,
+        start: date,
+        end: date,
+    ) -> list[dict]:
+        """Fetch generation endpoint (daily) in month-sized chunks."""
+        return self._fetch_chunks(
+            endpoint,
+            start,
+            end,
+            _DAILY_CHUNK_DAYS,
+            "day",
+            "generation",
+        )
+
+    def fetch_spot_price_hourly(
+        self,
+        endpoint: str,
+        start: date,
+        end: date,
+    ) -> list[dict]:
+        """Fetch spot price endpoint (hourly) in 14-day chunks."""
+        return self._fetch_chunks(
+            endpoint,
+            start,
+            end,
+            _HOURLY_CHUNK_DAYS,
+            "hour",
+            "spot price",
+        )
+
+
+# -- Open-Meteo Client -------------------------------------------------------
+
+
+class OpenMeteoClient:
+    """Client for the Open-Meteo Archive API (daily weather data)."""
+
+    def __init__(self, timeout: float = 60.0):
+        self._client = httpx.Client(timeout=timeout)
 
     def close(self) -> None:
         self._client.close()
 
-    def __enter__(self) -> ESIOSClient:
+    def __enter__(self) -> OpenMeteoClient:
         return self
 
     def __exit__(self, *args: Any) -> None:
@@ -156,38 +200,42 @@ class ESIOSClient:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=2, min=2, max=30),
-        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.TransportError)),
+        retry=retry_if_exception_type(
+            (httpx.HTTPStatusError, httpx.TransportError),
+        ),
         reraise=True,
     )
-    def _get(self, path: str, params: dict[str, str]) -> dict:
-        resp = self._client.get(path, params=params)
+    def _get(self, url: str, params: dict[str, str]) -> dict:
+        resp = self._client.get(url, params=params)
         resp.raise_for_status()
         return resp.json()
 
-    def fetch_indicator(
+    def fetch_daily_weather(
         self,
-        indicator_id: int,
         start: date,
         end: date,
-        label: str = "",
     ) -> list[dict]:
-        """Fetch an ESIOS indicator in quarterly chunks."""
-        chunks = _quarter_chunks(start, end)
+        """Fetch daily weather data in yearly chunks from archive API."""
+        chunks = _fixed_day_chunks(start, end, _WEATHER_CHUNK_DAYS)
         responses: list[dict] = []
-        desc = label or f"indicator {indicator_id}"
 
-        for chunk_start, chunk_end in tqdm(chunks, desc=f"ESIOS {desc}"):
+        for chunk_start, chunk_end in tqdm(chunks, desc="Weather"):
             params = {
-                "start_date": f"{chunk_start}T00:00:00Z",
-                "end_date": f"{chunk_end}T23:59:59Z",
-                "geo_ids[]": str(ESIOS_GEO_ID),
+                "latitude": str(WEATHER_LAT),
+                "longitude": str(WEATHER_LON),
+                "start_date": chunk_start.isoformat(),
+                "end_date": chunk_end.isoformat(),
+                "daily": ",".join(WEATHER_DAILY_VARS),
+                "timezone": WEATHER_TIMEZONE,
             }
             try:
-                data = self._get(f"/indicators/{indicator_id}", params)
+                data = self._get(OPEN_METEO_ARCHIVE_URL, params)
                 responses.append(data)
-            except httpx.HTTPStatusError as e:
+            except (httpx.HTTPStatusError, httpx.TransportError) as exc:
                 logger.warning(
-                    "ESIOS indicator %d chunk %s→%s failed: %s",
-                    indicator_id, chunk_start, chunk_end, e,
+                    "Open-Meteo chunk %s->%s failed: %s",
+                    chunk_start,
+                    chunk_end,
+                    exc,
                 )
         return responses

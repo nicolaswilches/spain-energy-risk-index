@@ -23,3 +23,17 @@ data/artifacts/
 
 # uv
 uv.lock
+
+# MLflow
+mlruns/
+mlflow.db
+mlartifacts/
+
+# Model artifacts (baked into Docker)
+models/
+
+# Pytest
+.pytest_cache/
+
+# Notebook checkpoints
+.ipynb_checkpoints/

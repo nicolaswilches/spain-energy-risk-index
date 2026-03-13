@@ -26,7 +26,7 @@ import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-from grid_risk.features import FEATURE_NAMES, RiskIndexFit
+from grid_risk.features import feature_names, RiskIndexFit
 from grid_risk.model import (
     assign_categories,
     cost_matrix_penalty,
@@ -110,11 +110,11 @@ def main() -> None:
     thresholds = fit.thresholds
     print(f"Thresholds: Low <= {thresholds[0]:.3f}, High > {thresholds[1]:.3f}")
 
-    X_train = train[FEATURE_NAMES]
+    X_train = train[feature_names]
     y_train = train["risk_index"].values
-    X_val = val[FEATURE_NAMES]
+    X_val = val[feature_names]
     y_val = val["risk_index"].values
-    X_test = test[FEATURE_NAMES]
+    X_test = test[feature_names]
     y_test = test["risk_index"].values
 
     # ------------------------------------------------------------------
@@ -238,7 +238,7 @@ def main() -> None:
     joblib.dump(fit, DEPLOYMENT_MODEL_DIR / "risk_index_fit.joblib")
 
     # Feature importance
-    feat_imp = get_feature_importance(lgbm_model, FEATURE_NAMES)
+    feat_imp = get_feature_importance(lgbm_model, feature_names)
     feat_imp.to_csv(DEPLOYMENT_MODEL_DIR / "feature_importance.csv", index=False)
 
     # Metrics JSON

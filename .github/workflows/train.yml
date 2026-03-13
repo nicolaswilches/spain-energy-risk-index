@@ -1,0 +1,42 @@
+# .github/workflows/train.yml
+# Reusable training workflow — trains the model using sample data
+# and uploads artifacts for the CI/CD pipeline.
+
+name: Train
+
+on:
+  workflow_call:
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Train model (sample data, skip tuning for speed)
+        env:
+          PYTHONPATH: src
+        run: python train.py --skip-tuning
+
+      - name: Verify artifacts
+        run: |
+          ls -R models/
+          cat run_id.txt
+
+      - name: Upload trained model
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-model
+          path: |
+            run_id.txt
+            models/
+          retention-days: 7

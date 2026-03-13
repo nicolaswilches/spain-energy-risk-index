@@ -1,0 +1,13 @@
+# render.yaml — Render.com deployment manifest
+# Pulls the latest Docker image from GitHub Container Registry (GHCR)
+
+services:
+  - type: web
+    name: spain-grid-risk
+    runtime: image
+    image:
+      url: ghcr.io/nicolaswilches/spain-energy-risk-index:latest
+    envVars:
+      - key: PORT
+        value: "9696"
+    healthCheckPath: /health

@@ -1,7 +1,15 @@
-"""Phase 2 — Target creation & feature engineering (daily pipeline, pure logic)."""
+"""
+Module 2: Feature Engineering.
+This module contains:
+1. Definition of the RiskIndexFit class.
+2. Dataset chronological splits.
+3. Feature engineering functions.
+"""
 
 from __future__ import annotations
 
+# Imports
+# ---------------------------------------------------------------------------
 from dataclasses import dataclass
 from datetime import date
 
@@ -11,70 +19,77 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
+# Classes
 # ---------------------------------------------------------------------------
-# Dataclass for fitted PCA pipeline
-# ---------------------------------------------------------------------------
-
-
 @dataclass
-class RiskIndexFit:
-    scaler: StandardScaler
-    pca: PCA
-    minmax: MinMaxScaler
-    pc1_weights: np.ndarray  # PCA component weights for PC1
-    thresholds: tuple[float, float]  # (p33, p67) on train risk_index
-
-
-# ---------------------------------------------------------------------------
-# 1. Chronological split (daily)
-# ---------------------------------------------------------------------------
-
-TRAIN_END = date(2023, 12, 31)
-VAL_END = date(2024, 6, 30)
-
-
-def chronological_split(
-    df: pd.DataFrame,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Split into train / val / test by date boundaries.
-
-    Train: <= 2023-12-31
-    Val:   2024-01-01 to 2024-06-30
-    Test:  2024-07-01 onward
+class RiskIndexFit: # This class acts as the container for the calibrated parameters found during the model training.
     """
-    train = df.loc[df.index <= TRAIN_END].copy()
-    val = df.loc[(df.index > TRAIN_END) & (df.index <= VAL_END)].copy()
-    test = df.loc[df.index > VAL_END].copy()
+    This Class is the model's 'Calibrator'. 
+    There is only 1 instance of this class.
+    This instance will contain the calibra ted weights for the 3 core factorsof the trained model.
+    
+    Calibration parameters:
+    - scaler: Stores the mean and standard deviation of 3 input factors to standardize new instances (predictions)
+    - pca: Stores the principal PCA object. This object "knows" how to project multiple complex grid factors into a single dimension.
+    - minmax: Stores the minimum and maximum values of the resulting PCA scores. Used to squeeze the final risk score into a readable 0 to 1 range.
+    - pc1_weights: Stores the "loadings" or importance weights for each input factor.
+    - Stores percentile thresholds to classify a Risk Index.
+    """
+    scaler: StandardScaler 
+    pca: PCA 
+    minmax: MinMaxScaler  
+    pc1_weights: np.ndarray 
+    thresholds: tuple[float, float] 
+
+
+# Functions
+# ---------------------------------------------------------------------------
+train_end = date(2023, 12, 31)
+val_end = date(2024, 6, 30)
+
+def chronological_split(df: pd.DataFrame,) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Splits dataframe into:
+    - Training set (<= 2023-12-31)
+    - Validation set (2024-01-01 to 2024-06-30)
+    - Testing set (2024-07-01 onward)
+
+    Returns a tuple of 3 pandas dataframes for: train, val, test.
+    """
+    train = df.loc[df.index <= train_end].copy()
+    val = df.loc[(df.index > train_end) & (df.index <= val_end)].copy()
+    test = df.loc[df.index > val_end].copy()
     return train, val, test
 
 
 # ---------------------------------------------------------------------------
-# 2. Core risk factors
-# ---------------------------------------------------------------------------
-
-FACTOR_COLS = ["flexibility_share", "demand_forecast_error", "net_load"]
-
-
 def compute_core_factors(df: pd.DataFrame) -> pd.DataFrame:
-    """Return a 3-column DataFrame with the risk factors."""
-    factors = pd.DataFrame(index=df.index)
-    factors["flexibility_share"] = (
-        df["gen_combined_cycle_mw"] + df["gen_hydro_mw"]
-    ) / df["gen_total_mw"]
+    """
+    Calculates the 3 core factors:
+    1. flexibility_share
+    2. demand_forecast_error
+    3. net_load
+
+    Returns a dataframe with the 3 core factors.
+    """
+    factors = pd.DataFrame(index=df.index) 
+    factors["flexibility_share"] = (df["gen_combined_cycle_mw"] + df["gen_hydro_mw"]) / df["gen_total_mw"]
     factors["demand_forecast_error"] = df["actual_demand_mw"] - df["forecast_demand_mw"]
-    factors["net_load"] = df["actual_demand_mw"] - (
-        df["gen_wind_mw"] + df["gen_solar_pv_mw"]
-    )
+    factors["net_load"] = df["actual_demand_mw"] - (df["gen_wind_mw"] + df["gen_solar_pv_mw"])
     return factors
 
 
 # ---------------------------------------------------------------------------
-# 3. Fit risk index (train only)
-# ---------------------------------------------------------------------------
-
-
 def fit_risk_index(train_factors: pd.DataFrame) -> RiskIndexFit:
-    """Fit StandardScaler -> PCA -> MinMaxScaler on train factors."""
+    """
+    Using the 3 core factors dataframe (using only training data):
+    > Fits StandardScaler.
+    > Then fits PCA.
+    > Then fits MinMaxScaler.
+    > Declares the risk labels thresholds (50p, 80p)
+
+    Returns a RiskIndexFit class instance or 'Calibrator' already tuned.
+    """
     clean = train_factors.dropna()
 
     scaler = StandardScaler().fit(clean)
@@ -86,73 +101,88 @@ def fit_risk_index(train_factors: pd.DataFrame) -> RiskIndexFit:
     minmax = MinMaxScaler().fit(pc1)
     risk_train = minmax.transform(pc1).ravel()
 
-    p33 = float(np.percentile(risk_train, 33))
-    p67 = float(np.percentile(risk_train, 67))
+    p20 = float(np.percentile(risk_train, 20))
+    p40 = float(np.percentile(risk_train, 40))
+    p60 = float(np.percentile(risk_train, 60))
+    p80 = float(np.percentile(risk_train, 80))
 
     return RiskIndexFit(
         scaler=scaler,
         pca=pca,
         minmax=minmax,
         pc1_weights=pca.components_[0],
-        thresholds=(p33, p67),
+        thresholds=(p20, p40, p60, p80),
     )
 
 
 # ---------------------------------------------------------------------------
-# 4. Transform risk index (any split)
-# ---------------------------------------------------------------------------
+def transform_risk_index(factors: pd.DataFrame, calibrator: RiskIndexFit,) -> pd.Series:
+    """
+    Uses:
+    - Calculated core factors dataframe.
+    - Calibrated RiskIndexFit class object.
 
-
-def transform_risk_index(
-    factors: pd.DataFrame,
-    fit: RiskIndexFit,
-) -> pd.Series:
-    """Apply fitted pipeline to produce risk_index in [0, 1]. NaN propagated."""
+    Returns a pandas Series with the Grid Risk Indexes.
+    """
     result = pd.Series(np.nan, index=factors.index, name="risk_index")
-    mask = factors.notna().all(axis=1)
+    mask = factors.notna().all(axis=1) # Days where all factors have data
     if mask.sum() == 0:
         return result
 
-    clean = factors.loc[mask]
-    scaled = fit.scaler.transform(clean)
-    pc1 = fit.pca.transform(scaled)[:, 0].reshape(-1, 1)
-    ri = fit.minmax.transform(pc1).ravel()
-    ri = np.clip(ri, 0.0, 1.0)
+    clean = factors.loc[mask] # clean means without nulls
+    scaled = calibrator.scaler.transform(clean)
+    pc1 = calibrator.pca.transform(scaled)[:, 0].reshape(-1, 1)
+    risk_index = calibrator.minmax.transform(pc1).ravel()
+    risk_index = np.clip(risk_index, 0.0, 1.0) # bound index between 0 and 1
 
-    result.loc[mask] = ri
+    result.loc[mask] = risk_index #assign risk index to the days with full data.
     return result
 
 
 # ---------------------------------------------------------------------------
-# 5. Risk category
-# ---------------------------------------------------------------------------
-
-
 def assign_risk_category(
-    risk_index: pd.Series,
-    thresholds: tuple[float, float],
-) -> pd.Series:
-    """Map risk_index -> Low / Medium / High using percentile thresholds."""
-    p33, p67 = thresholds
-    cats = pd.Series(
-        pd.NA,
-        index=risk_index.index,
-        name="risk_category",
-        dtype="string",
-    )
-    cats.loc[risk_index <= p33] = "Low"
-    cats.loc[(risk_index > p33) & (risk_index <= p67)] = "Medium"
-    cats.loc[risk_index > p67] = "High"
-    return cats
+    risk_index: pd.Series | np.ndarray, 
+    thresholds: tuple[float, float, float, float]
+    ) -> pd.Series | list[str]:
+    """
+    Maps risk_index into categories.
+    Returns a pandas Series for each Risk Index.
+    """
+    p20, p40, p60, p80,  = thresholds # from fit_risk_index()
+    if isinstance(risk_index, pd.Series):
+        categories = pd.Series(
+            pd.NA,
+            index=risk_index.index,
+            name="risk_category",
+            dtype="string",
+        )
+        categories.loc[risk_index <= p20] = "Low"
+        categories.loc[(risk_index > p20) & (risk_index <= p40)] = "Stable"
+        categories.loc[(risk_index > p40) & (risk_index <= p60)] = "Elevated"
+        categories.loc[(risk_index > p60) & (risk_index <= p80)] = "Severe"
+        categories.loc[risk_index > p80] = "Extreme"
+        return categories
+    else:
+        categories = []
+        for v in risk_index:
+            if np.isnan(v) or v < p20:
+                categories.append("Low") 
+            elif v <= p20 and v <= p40:
+                categories.append("Stable")
+            elif v <= p40 and v <= p60:
+                categories.append("Elevated")
+            elif v <= p60 and v <= p80:
+                categories.append("Severe")
+            else:
+                categories.append("Extreme")
+        return categories
 
 
 # ---------------------------------------------------------------------------
-# 6. Lagged features (daily)
-# ---------------------------------------------------------------------------
-
-
 def add_lagged_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Add 1-day and 7-day lags of risk_index."""
+    """
+    Add 1-day and 7-day lags of risk_index.
+    """
     df = df.copy()
     df["risk_index_lag_1d"] = df["risk_index"].shift(1)
     df["risk_index_lag_7d"] = df["risk_index"].shift(7)
@@ -160,10 +190,7 @@ def add_lagged_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
-# 7. Feature matrix (daily)
-# ---------------------------------------------------------------------------
-
-FEATURE_NAMES = [
+feature_names = [
     # REE day-ahead forecast
     "forecast_demand_mw",
     # Weather
@@ -187,7 +214,8 @@ FEATURE_NAMES = [
     "risk_index_lag_7d",
 ]
 
-
 def build_feature_matrix(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
-    """Return (X_df, feature_names) ready for modeling."""
-    return df[FEATURE_NAMES].copy(), list(FEATURE_NAMES)
+    """
+    Returns a tuple with (X_df, feature_names) ready for modeling.
+    """
+    return df[feature_names].copy(), list(feature_names)

@@ -1,22 +1,23 @@
-"""Phase 2 — Feature engineering pipeline (daily).
-
-Usage:
-    PYTHONPATH=src uv run python scripts/run_features.py
+"""
+Phase 2.
+Feature Engineering Pipeline.
 """
 
 from __future__ import annotations
 
+# Imports
 import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "src"))
-
 import joblib
 import pandas as pd
 
-from grid_risk.features import (
-    FEATURE_NAMES,
+# Helps python locate modules of the grid_risk package
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+
+# Imports from the features.py script
+from grid_risk.features import (  # noqa: E402
+    feature_names,
     add_lagged_features,
     assign_risk_category,
     build_feature_matrix,
@@ -33,16 +34,16 @@ ARTIFACTS = DATA / "artifacts"
 def main() -> None:
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
 
-    # -- Load -----------------------------------------------------------------
+    # Load data
     print("Loading data/merged_daily_data.parquet ...")
     df = pd.read_parquet(DATA / "merged_daily_data.parquet")
     print(f"  Rows: {len(df):,}")
 
-    # -- Core factors (all rows) ----------------------------------------------
+    # Compute and concat 3 core factors 
     factors = compute_core_factors(df)
-    df = pd.concat([df, factors], axis=1)
+    df = pd.concat([df, factors], axis=1) #horizontally
 
-    # -- Split BEFORE fitting -------------------------------------------------
+    # Execute chronological split into training, validation and testing data sets.
     train, val, test = chronological_split(df)
     print(f"  Train: {len(train):,}  Val: {len(val):,}  Test: {len(test):,}")
 
@@ -92,8 +93,8 @@ def main() -> None:
 
         X, names = build_feature_matrix(split)
         assert X.notna().all().all(), f"{label}: NaN in features"
-        assert len(names) == len(FEATURE_NAMES), (
-            f"{label}: expected {len(FEATURE_NAMES)} features, got {len(names)}"
+        assert len(names) == len(feature_names), (
+            f"{label}: expected {len(feature_names)} features, got {len(names)}"
         )
 
         cats = split["risk_category"].value_counts()
@@ -110,13 +111,13 @@ def main() -> None:
     test.to_parquet(DATA / "test.parquet")
     joblib.dump(fit, ARTIFACTS / "risk_index_fit.joblib")
 
-    print(f"\nSaved:")
+    print("\nSaved:")
     print(f"  data/daily_features.parquet  ({len(df):,} rows)")
     print(f"  data/train.parquet           ({len(train):,} rows)")
     print(f"  data/val.parquet             ({len(val):,} rows)")
     print(f"  data/test.parquet            ({len(test):,} rows)")
-    print(f"  data/artifacts/risk_index_fit.joblib")
-    print(f"\nFeatures ({len(FEATURE_NAMES)}): {FEATURE_NAMES}")
+    print("  data/artifacts/risk_index_fit.joblib")
+    print(f"\nFeatures ({len(feature_names)}): {feature_names}")
     print("Phase 2 complete.")
 
 

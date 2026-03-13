@@ -1,9 +1,11 @@
 """JSON response -> DataFrame extractors for each data stream (daily pipeline)."""
 
+
+# Imports
+# ---------------------------------------------------------------------
 from __future__ import annotations
 
 import logging
-
 import pandas as pd
 
 from grid_risk.config import (
@@ -16,15 +18,15 @@ from grid_risk.config import (
 logger = logging.getLogger(__name__)
 
 
-# -- REE helpers --------------------------------------------------------------
-
-
+# REE helpers
+# ---------------------------------------------------------------------
 def _parse_ree_series(
-    responses: list[dict],
-    target_title: str,
-    col_name: str,
-) -> pd.DataFrame:
-    """Extract a single named series from REE 'included' array across chunks."""
+    responses: list[dict], 
+    target_title: str, 
+    col_name: str) -> pd.DataFrame:
+    """
+    Extracts a single named series from REE 'included' array across chunks.
+    """
     records: list[dict] = []
 
     for resp in responses:
@@ -52,11 +54,10 @@ def _parse_ree_series(
     return df
 
 
-# -- Stream A: REE Demand (hourly -> daily) -----------------------------------
-
-
+# REE Demand Extractor (hourly to daily)
 def extract_demand_daily(responses: list[dict]) -> pd.DataFrame:
-    """Parse REE demand (hourly) -> resample to daily mean MW.
+    """
+    Parse REE demand (hourly) -> resample to daily mean MW.
 
     Returns a DataFrame indexed by date with columns:
     actual_demand_mw, forecast_demand_mw.
@@ -87,11 +88,10 @@ def extract_demand_daily(responses: list[dict]) -> pd.DataFrame:
     return merged
 
 
-# -- Stream A: REE Generation (daily native) ----------------------------------
-
-
+#  REE Generation (daily native)
 def extract_generation_daily(responses: list[dict]) -> pd.DataFrame:
-    """Parse REE generation mix (daily) -> DataFrame with one col per tech + total.
+    """
+    Parses REE generation mix (daily) -> DataFrame with one col per tech + total.
 
     The generation endpoint returns daily MWh values. We convert to daily mean
     MW by dividing by 24 so units are consistent with demand.

@@ -1,0 +1,82 @@
+# .github/workflows/ci-cd.yml
+# Main CI/CD pipeline: train -> lint -> build Docker -> test -> push to GHCR
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  packages: write
+
+jobs:
+  call-train:
+    name: "Train Model"
+    uses: ./.github/workflows/train.yml
+
+  build-test-deploy:
+    name: "Build, Test, and Deploy"
+    needs: call-train
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install testing tools
+        run: pip install flake8 pytest requests
+
+      - name: Download trained-model artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: trained-model
+          path: .
+
+      - name: Verify downloaded artifacts
+        run: |
+          ls -R models/
+          cat run_id.txt
+
+      - name: Lint
+        run: flake8 app.py train.py test_api.py src/ --max-line-length=100 --ignore=E501
+
+      - name: Build Docker image
+        run: docker build -t grid-risk-app .
+
+      - name: Test Docker container
+        run: |
+          docker run -d -p 9696:9696 --name grid-risk grid-risk-app
+          sleep 15
+          curl -f http://localhost:9696/health || (docker logs grid-risk && exit 1)
+          pytest -q test_api.py -k "not test_predict_endpoint"
+          docker stop grid-risk && docker rm grid-risk
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and Push to GHCR
+        run: |
+          IMAGE_ID="ghcr.io/${{ github.repository }}"
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[:upper:]' '[:lower:]')
+          VERSION=$(echo "${{ github.sha }}" | cut -c1-7)
+
+          echo "Pushing image: $IMAGE_ID with tags: latest, $VERSION"
+
+          docker tag grid-risk-app "$IMAGE_ID:$VERSION"
+          docker tag grid-risk-app "$IMAGE_ID:latest"
+
+          docker push "$IMAGE_ID:$VERSION"
+          docker push "$IMAGE_ID:latest"

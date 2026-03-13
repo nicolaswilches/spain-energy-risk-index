@@ -55,6 +55,7 @@ def _parse_ree_series(
 
 
 # REE Demand Extractor (hourly to daily)
+# ---------------------------------------------------------------------
 def extract_demand_daily(responses: list[dict]) -> pd.DataFrame:
     """
     Parse REE demand (hourly) -> resample to daily mean MW.
@@ -89,6 +90,7 @@ def extract_demand_daily(responses: list[dict]) -> pd.DataFrame:
 
 
 #  REE Generation (daily native)
+# ---------------------------------------------------------------------
 def extract_generation_daily(responses: list[dict]) -> pd.DataFrame:
     """
     Parses REE generation mix (daily) -> DataFrame with one col per tech + total.
@@ -133,9 +135,9 @@ def extract_generation_daily(responses: list[dict]) -> pd.DataFrame:
     return merged
 
 
-# -- Stream D: REE Spot Price (hourly -> daily) -------------------------------
 
-
+# REE Spot Price (hourly to daily) 
+# ---------------------------------------------------------------------
 def extract_spot_price_daily(responses: list[dict]) -> pd.DataFrame:
     """Parse REE spot market price (hourly) -> resample to daily mean EUR/MWh."""
     df = _parse_ree_series(
@@ -157,9 +159,8 @@ def extract_spot_price_daily(responses: list[dict]) -> pd.DataFrame:
     return df
 
 
-# -- Stream B: Open-Meteo Weather (daily native) -----------------------------
-
-
+# Open-Meteo Weather (daily native) 
+# ---------------------------------------------------------------------
 def extract_weather_daily(responses: list[dict]) -> pd.DataFrame:
     """Parse Open-Meteo archive responses -> DataFrame with weather columns."""
     all_records: list[dict] = []

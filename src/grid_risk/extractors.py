@@ -1,6 +1,5 @@
 """JSON response -> DataFrame extractors for each data stream (daily pipeline)."""
 
-
 # Imports
 # ---------------------------------------------------------------------
 from __future__ import annotations
@@ -21,9 +20,10 @@ logger = logging.getLogger(__name__)
 # REE helpers
 # ---------------------------------------------------------------------
 def _parse_ree_series(
-    responses: list[dict], 
-    target_title: str, 
-    col_name: str) -> pd.DataFrame:
+    responses: list[dict],
+    target_title: str,
+    col_name: str,
+) -> pd.DataFrame:
     """
     Extracts a single named series from REE 'included' array across chunks.
     """

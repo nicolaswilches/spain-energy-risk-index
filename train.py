@@ -28,7 +28,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from grid_risk.features import feature_names, RiskIndexFit
 from grid_risk.model import (
-    assign_categories,
+    assign_risk_category,
     cost_matrix_penalty,
     create_optuna_objective,
     evaluate,
@@ -73,15 +73,17 @@ def fit_risk_index_from_train(train: pd.DataFrame) -> RiskIndexFit:
     minmax = MinMaxScaler().fit(pc1)
     risk_train = minmax.transform(pc1).ravel()
 
-    p33 = float(np.percentile(risk_train, 33))
-    p67 = float(np.percentile(risk_train, 67))
+    p20 = float(np.percentile(risk_train, 20))
+    p40 = float(np.percentile(risk_train, 40))
+    p60 = float(np.percentile(risk_train, 60))
+    p80 = float(np.percentile(risk_train, 80))
 
     return RiskIndexFit(
         scaler=scaler,
         pca=pca,
         minmax=minmax,
         pc1_weights=pca.components_[0],
-        thresholds=(p33, p67),
+        thresholds=(p20, p40, p60, p80),
     )
 
 
@@ -108,7 +110,10 @@ def main() -> None:
         print("Fitted risk index from training data")
 
     thresholds = fit.thresholds
-    print(f"Thresholds: Low <= {thresholds[0]:.3f}, High > {thresholds[1]:.3f}")
+    print(
+        f"Thresholds: Low <= {thresholds[0]:.3f}, Stable <= {thresholds[1]:.3f}, "
+        f"Elevated <= {thresholds[2]:.3f}, Extreme > {thresholds[3]:.3f}"
+    )
 
     X_train = train[feature_names]
     y_train = train["risk_index"].values
@@ -201,8 +206,8 @@ def main() -> None:
             thresholds=thresholds,
         )
 
-        base_cat = assign_categories(y_baseline_test[mask], thresholds)
-        true_cat = assign_categories(y_test[mask], thresholds)
+        base_cat = assign_risk_category(y_baseline_test[mask], thresholds)
+        true_cat = assign_risk_category(y_test[mask], thresholds)
         baseline_cost = cost_matrix_penalty(true_cat, base_cat)
         cost_reduction = (
             (1 - metrics.cost_penalty / baseline_cost) * 100
@@ -213,7 +218,7 @@ def main() -> None:
         mlflow.log_metric("test_rmse", metrics.rmse)
         mlflow.log_metric("test_cost_penalty", metrics.cost_penalty)
         mlflow.log_metric("test_cost_reduction_pct", cost_reduction)
-        mlflow.log_metric("test_f3_high", metrics.f3_high)
+        mlflow.log_metric("test_f3_high", metrics.f3_extreme)
 
         # Log model to MLflow
         mlflow.sklearn.log_model(lgbm_model, "model")
@@ -224,7 +229,7 @@ def main() -> None:
             f"  Cost Penalty: {metrics.cost_penalty} "
             f"(baseline: {baseline_cost}, reduction: {cost_reduction:.1f}%)"
         )
-        print(f"  F3 Score:     {metrics.f3_high:.3f}")
+        print(f"  F3 Score:     {metrics.f3_extreme:.3f}")
         print(f"  RMSE:         {metrics.rmse:.4f}")
 
     # ------------------------------------------------------------------
@@ -250,7 +255,7 @@ def main() -> None:
             "rmse": metrics.rmse,
             "cost_penalty": metrics.cost_penalty,
             "cost_reduction_pct": cost_reduction,
-            "f3_high": metrics.f3_high,
+            "f3_high": metrics.f3_extreme,
         },
     }
     (DEPLOYMENT_MODEL_DIR / "metrics.json").write_text(

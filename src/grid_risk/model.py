@@ -25,6 +25,7 @@ from sklearn.metrics import (
 )
 from grid_risk.features import assign_risk_category
 
+
 # Classes
 # ---------------------------------------------------------------------------
 @dataclass
@@ -33,29 +34,35 @@ class BaselineResult:
     Class to store baseline metrics and results.
     Each instance of this class acts as a scorecard for a model.
     """
+
     y_true: np.ndarray
     y_pred: np.ndarray
     rmse: float
     mae: float
 
+
 @dataclass
-class EvalMetrics: 
+class EvalMetrics:
     """
     Class to store evaluation metrics.
     Each instance of this class acts as a business scorecard for a model.
     """
+
     rmse: float
     mae: float
     r2: float
     cost_penalty: int  # Metric B
-    f3_high: float  # Metric C
+    f3_extreme: float  # Metric C
     rmse_skill_score: float  # Metric A (% improvement)
     confusion: np.ndarray = field(repr=False)
 
 
 # Models
 # ---------------------------------------------------------------------------
-def persistence_baseline(y_true: np.ndarray, lag_1d: np.ndarray,) -> BaselineResult:
+def persistence_baseline(
+    y_true: np.ndarray,
+    lag_1d: np.ndarray,
+) -> BaselineResult:
     """
     Baseline model: predict risk_index = value from 1 day ago.
     """
@@ -72,7 +79,7 @@ def ridge_baseline(
     y_train: np.ndarray,
     X_eval: np.ndarray,
     y_eval: np.ndarray,
-) -> tuple[Ridge , BaselineResult: BaselineResult]:
+) -> tuple[Ridge, BaselineResult:BaselineResult]:
     """
     Fits a Ridge model using historical Risk Indexes.
 
@@ -156,21 +163,23 @@ def create_optuna_objective(
 
         3. For each trial we train a LightGBM model.
         4. For each model we calculate its quantile loss value.
-            Why Quantile Loss? 
-            This is the most important part. 
-            You aren't just looking for high accuracy; 
-            you are looking for a model that correctly 
-            predicts the "90th percentile" (the high-risk ceiling). 
+            Why Quantile Loss?
+            This is the most important part.
+            You aren't just looking for high accuracy;
+            you are looking for a model that correctly
+            predicts the "90th percentile" (the high-risk ceiling).
             This loss value is the "Grade" the model gets for that trial.
         5. The quantile loss value is the 'Grade' for the model. Low is good.
 
         6. Returns the quantile loss value.
         """
         params = {
-            "reg_alpha": trial.suggest_float("reg_alpha", 1e-3, 10.0, log=True), # Notice you use log=True for small numbers like learning rate. This tells Optuna to spend more time exploring the difference between 0.01 and 0.02 than between 0.09 and 0.10.
+            "reg_alpha": trial.suggest_float(
+                "reg_alpha", 1e-3, 10.0, log=True
+            ),  # Notice you use log=True for small numbers like learning rate. This tells Optuna to spend more time exploring the difference between 0.01 and 0.02 than between 0.09 and 0.10.
             "reg_lambda": trial.suggest_float("reg_lambda", 1e-3, 10.0, log=True),
             "num_leaves": trial.suggest_int("num_leaves", 15, 63),
-            "learning_rate": trial.suggest_float("learning_rate",0.01,0.1,log=True),
+            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
             "min_child_samples": trial.suggest_int("min_child_samples", 10, 50),
         }
         # For each trial we train a model.
@@ -183,12 +192,16 @@ def create_optuna_objective(
             quantile_alpha=quantile_alpha,
         )
         y_pred = predict(model, X_val)
-        return quantile_loss(y_val, y_pred, quantile_alpha) # defined below 
+        return quantile_loss(y_val, y_pred, quantile_alpha)  # defined below
 
     return objective
 
 
-def quantile_loss(y_true: np.ndarray, y_pred: np.ndarray, alpha: float,) -> float:
+def quantile_loss(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    alpha: float,
+) -> float:
     """
     Calculates the average quantile loss for a LightGBM model.
     - If the result is Positive: The real risk was higher than predicted (Under-prediction).
@@ -197,7 +210,9 @@ def quantile_loss(y_true: np.ndarray, y_pred: np.ndarray, alpha: float,) -> floa
     Returns a float value with the average quantile loss.
     """
     residual = y_true - y_pred
-    return float(np.mean(np.where(residual >= 0, alpha * residual, (alpha - 1) * residual)))
+    return float(
+        np.mean(np.where(residual >= 0, alpha * residual, (alpha - 1) * residual))
+    )
 
 
 # Predictions generation
@@ -213,6 +228,7 @@ def predict(model: Any, X: np.ndarray) -> np.ndarray:
 
 # Model Evaluation by bussiness metrics
 # ---------------------------------------------------------------------------
+
 
 # Metric 1: Penalty / Cost Matrix
 def cost_matrix_penalty(
@@ -243,21 +259,20 @@ def f_beta_high(
     beta: float = 3.0,  # beta parameter to weight higher Recall
 ) -> float:
     """
-    F3 score for the High class (recall weighted 9x over precision).
+    F3 score for the Extreme class (recall weighted 9x over precision).
     F-Score with beta = 3 to give x3 higher importance to Recall than Precision.
 
     Returns a float value with the F3 score.
     """
-    y_true_bin = [1 if c == "High" else 0 for c in y_true_cat]
-    y_pred_bin = [1 if c == "High" else 0 for c in y_pred_cat]
+    y_true_bin = [1 if c == "Extreme" else 0 for c in y_true_cat]
+    y_pred_bin = [1 if c == "Extreme" else 0 for c in y_pred_cat]
     return float(fbeta_score(y_true_bin, y_pred_bin, beta=beta, zero_division="warn"))
 
 
 # Metric 3: Baseline-relative RMSE
 def baseline_relative_rmse(
-    y_true: np.ndarray, 
-    y_pred: np.ndarray, 
-    y_baseline: np.ndarray) -> float:
+    y_true: np.ndarray, y_pred: np.ndarray, y_baseline: np.ndarray
+) -> float:
     """
     Calculates the RMSE for the baseline and LightGBM model.
 
@@ -272,7 +287,8 @@ def baseline_relative_rmse(
 
 # Feature importance
 # ---------------------------------------------------------------------------
-def get_feature_importance(model: Any,
+def get_feature_importance(
+    model: Any,
     feature_names: list[str],
 ) -> pd.DataFrame:
     """
@@ -288,14 +304,16 @@ def get_feature_importance(model: Any,
 # Full evaluation
 # ---------------------------------------------------------------------------
 
+
 def evaluate(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     y_baseline: np.ndarray,
-    thresholds: tuple[float, float]) -> EvalMetrics:
+    thresholds: tuple[float, float, float, float],
+) -> EvalMetrics:
     """
     Computes all evaluation metrics for the LightGBM model.
-    
+
     Returns an instance of the EvalMetrics class.
     """
     rmse = float(np.sqrt(mean_squared_error(y_true, y_pred)))
@@ -311,11 +329,11 @@ def evaluate(
     # Metric B — cost penalty
     cost = cost_matrix_penalty(y_true_cat, y_pred_cat)
 
-    # Metric C — F3
+    # Metric C — F3 (Extreme class)
     f3 = f_beta_high(y_true_cat, y_pred_cat)
 
-    # Confusion matrix (Low, Medium, High)
-    labels = ["Low", "Medium", "High"]
+    # Confusion matrix (5 categories)
+    labels = ["Low", "Stable", "Elevated", "Severe", "Extreme"]
     cm = confusion_matrix(y_true_cat, y_pred_cat, labels=labels)
 
     return EvalMetrics(
@@ -323,7 +341,7 @@ def evaluate(
         mae=mae,
         r2=r2,
         cost_penalty=cost,
-        f3_high=f3,
+        f3_extreme=f3,
         rmse_skill_score=skill,
         confusion=cm,
     )

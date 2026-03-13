@@ -21,9 +21,9 @@ import numpy as np
 import optuna
 import pandas as pd
 
-from grid_risk.features import FEATURE_NAMES, RiskIndexFit
+from grid_risk.features import feature_names as FEATURE_NAMES, RiskIndexFit
 from grid_risk.model import (
-    assign_categories,
+    assign_risk_category,
     cost_matrix_penalty,
     create_optuna_objective,
     evaluate,
@@ -167,8 +167,8 @@ def main() -> None:
         )
 
         # Baseline cost for comparison
-        base_cat = assign_categories(y_baseline_test[mask], thresholds)
-        true_cat = assign_categories(y_test[mask], thresholds)
+        base_cat = assign_risk_category(y_baseline_test[mask], thresholds)
+        true_cat = assign_risk_category(y_test[mask], thresholds)
         baseline_cost = cost_matrix_penalty(true_cat, base_cat)
 
         cost_reduction = (
@@ -184,7 +184,7 @@ def main() -> None:
         mlflow.log_metric("test_cost_penalty", metrics.cost_penalty)
         mlflow.log_metric("test_baseline_cost", baseline_cost)
         mlflow.log_metric("test_cost_reduction_pct", cost_reduction)
-        mlflow.log_metric("test_f3_high", metrics.f3_high)
+        mlflow.log_metric("test_f3_high", metrics.f3_extreme)
         mlflow.log_metric("test_rmse_skill_score", metrics.rmse_skill_score)
 
         # Log model
@@ -202,20 +202,20 @@ def main() -> None:
             f"  B. Cost Matrix Penalty:  {metrics.cost_penalty} pts  "
             f"(baseline: {baseline_cost} pts, reduction: {cost_reduction:.1f}%)"
         )
-        print(f"  C. F3 Score (High):      {metrics.f3_high:.3f}")
+        print(f"  C. F3 Score (Extreme):      {metrics.f3_extreme:.3f}")
 
         print("\n-- Standard Metrics (Test Set) --")
         print(f"  RMSE: {metrics.rmse:.4f}")
         print(f"  MAE:  {metrics.mae:.4f}")
         print(f"  R2:   {metrics.r2:.4f}")
 
-        print("\n-- Confusion Matrix (Low / Medium / High) --")
-        labels = ["Low", "Medium", "High"]
-        header = "            " + "  ".join(f"{lbl:>8s}" for lbl in labels)
+        print("\n-- Confusion Matrix (Low / Stable / Elevated / Severe / Extreme) --")
+        labels = ["Low", "Stable", "Elevated", "Severe", "Extreme"]
+        header = "            " + "  ".join(f"{lbl:>10s}" for lbl in labels)
         print(header)
         for i, label in enumerate(labels):
-            row = "  ".join(f"{metrics.confusion[i, j]:>8d}" for j in range(3))
-            print(f"  {label:>8s}  {row}")
+            row = "  ".join(f"{metrics.confusion[i, j]:>10d}" for j in range(5))
+            print(f"  {label:>10s}  {row}")
 
         # Store test predictions for notebook analysis
         test_predictions = pd.DataFrame(
@@ -251,7 +251,7 @@ def main() -> None:
             "cost_penalty": metrics.cost_penalty,
             "baseline_cost_penalty": baseline_cost,
             "cost_reduction_pct": cost_reduction,
-            "f3_high": metrics.f3_high,
+            "f3_high": metrics.f3_extreme,
             "rmse_skill_score": metrics.rmse_skill_score,
         },
         "baselines": {

@@ -47,7 +47,7 @@ jobs:
           cat run_id.txt
 
       - name: Lint
-        run: flake8 app.py train.py test_api.py src/ --max-line-length=100 --ignore=E501
+        run: flake8 app.py train.py test_api.py src/
 
       - name: Build Docker image
         run: docker build -t grid-risk-app .

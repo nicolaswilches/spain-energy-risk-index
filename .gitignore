@@ -11,6 +11,7 @@ build/
 
 # Data outputs
 data/*.parquet
+!data/sample_*.parquet
 data/*.csv
 data/artifacts/
 

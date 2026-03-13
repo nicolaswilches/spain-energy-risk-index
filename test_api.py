@@ -35,7 +35,7 @@ def test_health_endpoint():
 
 
 def test_predict_endpoint():
-    payload = {"date": "2026-03-10"}
+    payload = {"target_date": "2026-03-10"}
     resp = requests.post(f"{BASE_URL}/predict", json=payload)
     assert resp.status_code == 200, (
         f"Unexpected status: {resp.status_code} body={resp.text}"
@@ -51,12 +51,12 @@ def test_predict_endpoint():
     # Validate types and ranges
     assert isinstance(data["risk_index"], float)
     assert 0.0 <= data["risk_index"] <= 1.0
-    assert data["risk_category"] in ("Low", "Medium", "High")
+    assert data["risk_category"] in ("Low", "Stable", "Elevated", "Severe", "Extreme")
     assert isinstance(data["model_version"], str) and len(data["model_version"]) > 5
 
 
 def test_predict_invalid_date():
-    payload = {"date": "not-a-date"}
+    payload = {"target_date": "not-a-date"}
     resp = requests.post(f"{BASE_URL}/predict", json=payload)
     assert resp.status_code == 422, (
         f"Expected 422 for invalid date, got {resp.status_code}"

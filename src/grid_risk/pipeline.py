@@ -1,9 +1,10 @@
 """
-Orchestrator Module: 
+Orchestrator Module:
     1. Extract using extractors.py
-    2. Clean using cleaning.py 
+    2. Clean using cleaning.py
     3. Merges, validates and saves to parquet.
 """
+
 # Imports
 # ---------------------------------------------------------------------------
 from __future__ import annotations
@@ -40,8 +41,11 @@ from grid_risk.cleaning import (
 
 logger = logging.getLogger(__name__)
 
+
 # Pipeline function to build full parquet dataset
 # ---------------------------------------------------------------------------
+
+
 def run_pipeline(
     start: date,
     end: date,
@@ -57,15 +61,17 @@ def run_pipeline(
         D. REE spot price (hourly -> daily mean) + HDD/CDD (derived)
     """
 
-    # 1. REE extractions 
+    # 1. REE extractions
     logger.info("Starting REE extractions from %s to %s", start, end)
 
     with REEClient() as ree:
         # Retrieves hourly Demand, Generation, Spot price.
         # Resampled to daily mean in extractor.
         demand_raw = ree.fetch_demand_hourly(REE_ENDPOINTS["demand"], start, end)
-        gen_raw = ree.fetch_generation_daily(REE_ENDPOINTS["generation_mix"],start,end)
-        spot_raw = ree.fetch_spot_price_hourly(REE_ENDPOINTS["spot_price"],start, end)
+        gen_raw = ree.fetch_generation_daily(
+            REE_ENDPOINTS["generation_mix"], start, end
+        )
+        spot_raw = ree.fetch_spot_price_hourly(REE_ENDPOINTS["spot_price"], start, end)
 
     demand_df = extract_demand_daily(demand_raw)
     gen_df = extract_generation_daily(gen_raw)
@@ -105,9 +111,8 @@ def run_pipeline(
 
     # Join weather
     if not weather_df.empty:
-        weather_df = ensure_date_index(weather_df)  
+        weather_df = ensure_date_index(weather_df)
         merged = merged.join(weather_df, how="left")
-
 
     # 4. Calendar features
     merged = add_calendar_features(merged)  # function from cleaning.py
@@ -118,20 +123,20 @@ def run_pipeline(
     # 6. Impute small gaps
     merged = impute_gaps(merged)
 
-    # 7. Ensure all output columns exist 
-    for col in OUTPUT_COLUMNS: # from config.py
+    # 7. Ensure all output columns exist
+    for col in OUTPUT_COLUMNS:  # from config.py
         if col not in merged.columns:
             merged[col] = pd.NA
 
     # 8. Validate
-    report = validate_dataset(merged) # function from cleaning.py
+    report = validate_dataset(merged)  # function from cleaning.py
     logger.info("Validation passed: %s", report.passed)
     for msg in report.messages:
         logger.info("  %s", msg)
 
     #  9. Save to parquet the final dataset
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / OUTPUT_FILENAME # from config.py
+    output_path = output_dir / OUTPUT_FILENAME  # from config.py
 
     final_cols = [c for c in OUTPUT_COLUMNS if c in merged.columns]
     merged[final_cols].to_parquet(output_path, engine="pyarrow")

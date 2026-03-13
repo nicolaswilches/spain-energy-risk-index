@@ -7,8 +7,6 @@ Model and risk_index_fit artifacts are baked into the Docker image at
 build time under /app/models/.
 """
 
-from __future__ import annotations
-
 import logging
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
@@ -43,12 +41,12 @@ from grid_risk.extractors import (
     extract_weather_daily,
 )
 from grid_risk.features import (
-    FEATURE_NAMES,
+    feature_names as FEATURE_NAMES,
     RiskIndexFit,
     compute_core_factors,
     transform_risk_index,
 )
-from grid_risk.model import assign_categories, predict
+from grid_risk.model import assign_risk_category, predict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -73,7 +71,7 @@ RUN_ID_PATH = Path("run_id.txt")
 
 
 class PredictionRequest(BaseModel):
-    date: date = Field(
+    target_date: date = Field(
         ...,
         description=(
             "The date for which to predict the risk index. "
@@ -82,10 +80,11 @@ class PredictionRequest(BaseModel):
         ),
     )
 
-    class Config:
-        json_schema_extra = {
-            "example": {"date": "2026-03-12"},
+    model_config = {
+        "json_schema_extra": {
+            "example": {"target_date": "2026-03-12"},
         }
+    }
 
 
 class PredictionResponse(BaseModel):
@@ -93,7 +92,9 @@ class PredictionResponse(BaseModel):
     risk_index: float = Field(
         ..., ge=0.0, le=1.0, description="Predicted risk index (0=safe, 1=critical)"
     )
-    risk_category: str = Field(..., description="Low / Medium / High")
+    risk_category: str = Field(
+        ..., description="Low / Stable / Elevated / Severe / Extreme"
+    )
     model_version: str
 
 
@@ -238,7 +239,6 @@ def _build_features(
     row = recent_data.loc[[target_date]]
 
     # Check which features are available
-    available_features = [f for f in FEATURE_NAMES if f in row.columns]
     missing_features = [f for f in FEATURE_NAMES if f not in row.columns]
 
     if missing_features:
@@ -335,7 +335,7 @@ def predict_risk(request: PredictionRequest):
             detail="Model or risk fit not loaded. Check /health.",
         )
 
-    target = request.date
+    target = request.target_date
     logger.info("Prediction requested for date: %s", target)
 
     try:
@@ -350,7 +350,7 @@ def predict_risk(request: PredictionRequest):
         risk_value = float(np.clip(y_pred[0], 0.0, 1.0))
 
         # 4. Assign category
-        category = assign_categories(
+        category = assign_risk_category(
             np.array([risk_value]),
             risk_fit.thresholds,
         )[0]

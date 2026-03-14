@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Spain Grid Risk Index</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .card { background: #1e293b; border-radius: 16px; padding: 40px; width: 420px; box-shadow: 0 25px 50px rgba(0,0,0,0.5); }
+    h1 { font-size: 1.4rem; margin-bottom: 4px; color: #f8fafc; }
+    .subtitle { font-size: 0.85rem; color: #64748b; margin-bottom: 28px; }
+    label { font-size: 0.85rem; color: #94a3b8; display: block; margin-bottom: 6px; }
+    input[type="date"] { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #f1f5f9; font-size: 1rem; margin-bottom: 16px; }
+    input[type="text"] { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #f1f5f9; font-size: 0.9rem; margin-bottom: 20px; }
+    button { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #3b82f6; color: white; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    button:hover { background: #2563eb; }
+    button:disabled { background: #1e40af; cursor: not-allowed; }
+    .result { margin-top: 24px; padding: 20px; border-radius: 12px; background: #0f172a; border: 1px solid #1e293b; display: none; }
+    .result.show { display: block; }
+    .risk-score { font-size: 3rem; font-weight: 700; text-align: center; margin: 8px 0; }
+    .risk-category { text-align: center; font-size: 1.1rem; font-weight: 600; padding: 4px 16px; border-radius: 20px; display: inline-block; margin: 0 auto; }
+    .center { text-align: center; }
+    .meta { font-size: 0.75rem; color: #475569; margin-top: 12px; text-align: center; }
+    .error { color: #f87171; font-size: 0.9rem; margin-top: 16px; text-align: center; display: none; }
+    .error.show { display: block; }
+    .gauge-wrap { position: relative; height: 8px; background: #1e293b; border-radius: 4px; margin: 12px 0; }
+    .gauge-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+    .Low    { color: #4ade80; }
+    .Stable { color: #a3e635; }
+    .Elevated { color: #facc15; }
+    .Severe { color: #fb923c; }
+    .Extreme { color: #f87171; }
+    .bg-Low    { background: #4ade80; }
+    .bg-Stable { background: #a3e635; }
+    .bg-Elevated { background: #facc15; }
+    .bg-Severe { background: #fb923c; }
+    .bg-Extreme { background: #f87171; }
+    .badge-Low { background:#14532d; color:#4ade80; }
+    .badge-Stable { background:#1a2e05; color:#a3e635; }
+    .badge-Elevated { background:#422006; color:#facc15; }
+    .badge-Severe { background:#431407; color:#fb923c; }
+    .badge-Extreme { background:#450a0a; color:#f87171; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>⚡ Spain Grid Risk Index</h1>
+    <p class="subtitle">Day-ahead systemic tension forecast · LightGBM + REE data</p>
+
+    <label>API Endpoint</label>
+    <input type="text" id="apiUrl" value="http://localhost:9696" />
+
+    <label>Target Date</label>
+    <input type="date" id="targetDate" />
+
+    <button id="predictBtn" onclick="predict()">Predict Risk</button>
+
+    <div class="error" id="errorBox"></div>
+
+    <div class="result" id="resultBox">
+      <div class="center">
+        <div class="risk-score" id="scoreDisplay">—</div>
+        <span class="risk-category" id="categoryBadge">—</span>
+      </div>
+      <div class="gauge-wrap">
+        <div class="gauge-fill" id="gaugeFill" style="width:0%"></div>
+      </div>
+      <div class="meta" id="metaInfo"></div>
+    </div>
+  </div>
+
+  <script>
+    // Set default date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('targetDate').value = tomorrow.toISOString().split('T')[0];
+
+    async function predict() {
+      const btn = document.getElementById('predictBtn');
+      const errorBox = document.getElementById('errorBox');
+      const resultBox = document.getElementById('resultBox');
+      const apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
+      const targetDate = document.getElementById('targetDate').value;
+
+      if (!targetDate) { showError('Please select a date.'); return; }
+
+      btn.disabled = true;
+      btn.textContent = 'Fetching live data…';
+      errorBox.classList.remove('show');
+      resultBox.classList.remove('show');
+
+      try {
+        const res = await fetch(`${apiUrl}/predict`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_date: targetDate })
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(err.detail || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        showResult(data);
+      } catch (e) {
+        showError(e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Predict Risk';
+      }
+    }
+
+    function showResult(data) {
+      const score = data.risk_index;
+      const cat = data.risk_category;
+
+      document.getElementById('scoreDisplay').textContent = score.toFixed(3);
+      document.getElementById('scoreDisplay').className = `risk-score ${cat}`;
+
+      const badge = document.getElementById('categoryBadge');
+      badge.textContent = cat;
+      badge.className = `risk-category badge-${cat}`;
+
+      const fill = document.getElementById('gaugeFill');
+      fill.style.width = `${(score * 100).toFixed(1)}%`;
+      fill.className = `gauge-fill bg-${cat}`;
+
+      document.getElementById('metaInfo').textContent =
+        `Date: ${data.date}  ·  Model: ${data.model_version.slice(0, 8)}`;
+
+      document.getElementById('resultBox').classList.add('show');
+    }
+
+    function showError(msg) {
+      const box = document.getElementById('errorBox');
+      box.textContent = `Error: ${msg}`;
+      box.classList.add('show');
+    }
+  </script>
+</body>
+</html>

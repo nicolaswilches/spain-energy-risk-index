@@ -61,3 +61,12 @@ def test_predict_invalid_date():
     assert resp.status_code == 422, (
         f"Expected 422 for invalid date, got {resp.status_code}"
     )
+
+
+def test_cors_headers():
+    # Verify that the API returns the expected CORS headers
+    # browsers send an 'Origin' header; CORS middleware responds to it.
+    headers = {"Origin": "http://localhost:3000"}
+    resp = requests.get(f"{BASE_URL}/", headers=headers)
+    assert "access-control-allow-origin" in resp.headers, "CORS header missing"
+    assert resp.headers["access-control-allow-origin"] in ["*", "http://localhost:3000"]

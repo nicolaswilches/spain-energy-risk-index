@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ src/
 COPY app.py .
 COPY run_id.txt .
+COPY webapp/ webapp/
 
 # Copy baked-in model artifacts (from CI training step)
 COPY models/ models/

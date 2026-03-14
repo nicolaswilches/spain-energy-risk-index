@@ -1,4 +1,5 @@
-"""Train the Spain Energy Grid Risk Index model for CI/CD deployment.
+"""
+Train the Spain Energy Grid Risk Index model for CI/CD deployment.
 
 This script is self-contained for CI: it uses sample data stored in the
 repo (data/sample_*.parquet) and produces deployment-ready artifacts
@@ -45,7 +46,9 @@ DEPLOYMENT_MODEL_DIR = ROOT / "models"
 
 
 def load_data(full: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Load train/val/test splits. Use sample data for CI, full data for local."""
+    """
+    Load train/val/test splits. Use sample data for CI, full data for local.
+    """
     if full:
         prefix = ""
     else:

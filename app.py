@@ -17,6 +17,8 @@ import joblib
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from grid_risk.api_client import REEClient, OpenMeteoClient
@@ -307,14 +309,25 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
-@app.get("/")
+@app.get("/api")
 def root():
     return {
         "message": "Spain Energy Grid Risk Index API",
         "docs": "/docs",
     }
+
+
+# Mount the webapp after all other routes
+# This serves index.html at the root "/" automatically
+app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")
 
 
 @app.get("/health")

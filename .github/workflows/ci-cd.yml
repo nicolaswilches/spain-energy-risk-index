@@ -56,8 +56,12 @@ jobs:
         run: |
           docker run -d -p 9696:9696 --name grid-risk grid-risk-app
           sleep 15
+          # Verify API health
           curl -f http://localhost:9696/health || (docker logs grid-risk && exit 1)
-          pytest -q test_api.py -k "not test_predict_endpoint"
+          # Verify Web UI is served
+          curl -f http://localhost:9696/ || (docker logs grid-risk && exit 1)
+          # Run integration tests (including the new CORS test)
+          pytest -v test_api.py -k "not test_predict_endpoint"
           docker stop grid-risk && docker rm grid-risk
 
       - name: Log in to GitHub Container Registry

@@ -43,12 +43,13 @@ from grid_risk.extractors import (
     extract_weather_daily,
 )
 from grid_risk.features import (
+    assign_risk_category,
     feature_names as FEATURE_NAMES,
     RiskIndexFit,
     compute_core_factors,
     transform_risk_index,
 )
-from grid_risk.model import assign_risk_category, predict
+from grid_risk.model import predict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

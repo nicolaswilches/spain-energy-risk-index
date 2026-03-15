@@ -21,9 +21,12 @@ import numpy as np
 import optuna
 import pandas as pd
 
-from grid_risk.features import feature_names as FEATURE_NAMES, RiskIndexFit
-from grid_risk.model import (
+from grid_risk.features import (
     assign_risk_category,
+    feature_names as FEATURE_NAMES,
+    RiskIndexFit,
+)
+from grid_risk.model import (
     cost_matrix_penalty,
     create_optuna_objective,
     evaluate,

@@ -8,7 +8,6 @@ dependencies = [
     "pandas>=2.2",
     "pyarrow>=17",
     "tenacity>=9",
-    "python-dotenv>=1.0",
     "tqdm>=4.66",
     "python-dateutil>=2.9",
     "scikit-learn>=1.5",
@@ -16,12 +15,10 @@ dependencies = [
     "lightgbm>=4.3",
     "optuna>=3.6",
     "holidays>=0.60",
-    "openmeteo-requests>=1.2",
     "mlflow>=2.11",
     "fastapi>=0.110",
     "uvicorn>=0.29",
     "pydantic>=2.0",
-    "requests>=2.31",
 ]
 
 [project.optional-dependencies]
@@ -36,9 +33,5 @@ notebooks = [
 dev = [
     "pytest>=7.0",
     "flake8>=7.0",
-]
-
-[dependency-groups]
-dev = [
-    "flake8>=7.3.0",
+    "requests>=2.31",
 ]

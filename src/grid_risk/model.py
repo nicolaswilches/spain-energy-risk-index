@@ -176,7 +176,7 @@ def create_optuna_objective(
         params = {
             "reg_alpha": trial.suggest_float(
                 "reg_alpha", 1e-3, 10.0, log=True
-            ),  # Notice you use log=True for small numbers like learning rate. This tells Optuna to spend more time exploring the difference between 0.01 and 0.02 than between 0.09 and 0.10.
+            ),  # log=True: explore small values more densely
             "reg_lambda": trial.suggest_float("reg_lambda", 1e-3, 10.0, log=True),
             "num_leaves": trial.suggest_int("num_leaves", 15, 63),
             "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
@@ -238,8 +238,8 @@ def cost_matrix_penalty(
     fp_cost: int = 1,  # False positives are penalized x1.
 ) -> int:
     """
-    Calculates a 'cost' by comparing the Actual vs. Predicted risk category for each time period.
-    Asymmetric cost: False Negatives (missed Extreme) costs 10x more than False Positives (false Extreme).
+    Asymmetric cost comparing Actual vs. Predicted risk category.
+    FN(Extreme) = 10 pts, FP(Extreme) = 1 pt.
 
     Returns an integer value with the total cost of the model.
     """

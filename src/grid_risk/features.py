@@ -22,18 +22,18 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 # Classes
 # ---------------------------------------------------------------------------
 @dataclass
-class RiskIndexFit:  # This class acts as the container for the calibrated parameters found during the model training.
-    """
-    This Class is the model's 'Calibrator'.
-    There is only 1 instance of this class.
-    This instance will contain the calibra ted weights for the 3 core factorsof the trained model.
+class RiskIndexFit:
+    """Container for the calibrated PCA risk-index pipeline.
+
+    There is only 1 instance of this class. It stores the fitted
+    weights for the 3 core factors of the trained model.
 
     Calibration parameters:
-    - scaler: Stores the mean and standard deviation of 3 input factors to standardize new instances (predictions)
-    - pca: Stores the principal PCA object. This object "knows" how to project multiple complex grid factors into a single dimension.
-    - minmax: Stores the minimum and maximum values of the resulting PCA scores. Used to squeeze the final risk score into a readable 0 to 1 range.
-    - pc1_weights: Stores the "loadings" or importance weights for each input factor.
-    - Stores percentile thresholds to classify a Risk Index.
+    - scaler: Mean/std of 3 input factors for standardization.
+    - pca: PCA object that projects grid factors into 1 dimension.
+    - minmax: Min/max of PCA scores to squeeze risk into [0, 1].
+    - pc1_weights: Loadings (importance) for each input factor.
+    - thresholds: Percentile thresholds to classify a Risk Index.
     """
 
     scaler: StandardScaler

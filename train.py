@@ -27,9 +27,8 @@ import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-from grid_risk.features import feature_names, RiskIndexFit
+from grid_risk.features import assign_risk_category, feature_names, RiskIndexFit
 from grid_risk.model import (
-    assign_risk_category,
     cost_matrix_penalty,
     create_optuna_objective,
     evaluate,

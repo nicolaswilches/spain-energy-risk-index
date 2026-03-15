@@ -1,18 +1,17 @@
-# Production dependencies for Docker
-# Kept minimal — no notebooks, no dev tools
-fastapi
-uvicorn
-pydantic
-joblib
-pandas
-pyarrow
-numpy
-scikit-learn
-lightgbm
-httpx
-tenacity
-tqdm
-holidays
-mlflow
-optuna
-python-dateutil
+# Production dependencies for Docker (pinned for reproducibility)
+fastapi==0.135.1
+uvicorn==0.41.0
+pydantic==2.12.5
+joblib==1.5.3
+pandas==2.3.3
+pyarrow==23.0.1
+numpy==2.4.3
+scikit-learn==1.8.0
+lightgbm==4.6.0
+httpx==0.28.1
+tenacity==9.1.4
+tqdm==4.67.3
+holidays==0.92
+mlflow==3.10.1
+optuna==4.7.0
+python-dateutil==2.9.0.post0

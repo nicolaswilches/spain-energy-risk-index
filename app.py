@@ -106,7 +106,8 @@ class PredictionResponse(BaseModel):
 
 
 def _fetch_recent_data(target_date: date) -> pd.DataFrame:
-    """Fetch the last 10 days of actual data from REE + Open-Meteo.
+    """
+    Fetch the last 10 days of actual data from REE + Open-Meteo.
 
     We need at least 7 days of history to compute risk_index_lag_7d,
     plus the target date itself (weather forecast).
@@ -325,11 +326,6 @@ def root():
     }
 
 
-# Mount the webapp after all other routes
-# This serves index.html at the root "/" automatically
-app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")
-
-
 @app.get("/health")
 def health():
     return {
@@ -383,6 +379,11 @@ def predict_risk(request: PredictionRequest):
             status_code=500,
             detail=f"Prediction failed: {str(exc)}",
         )
+
+
+# Mount the webapp after ALL API routes
+# This serves index.html at the root "/" automatically
+app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")
 
 
 # ---------------------------------------------------------------------------

@@ -13,7 +13,7 @@ BASE_URL = "http://localhost:9696"
 
 
 def test_root_endpoint():
-    resp = requests.get(f"{BASE_URL}/")
+    resp = requests.get(f"{BASE_URL}/api")
     assert resp.status_code == 200, (
         f"Unexpected status: {resp.status_code} body={resp.text}"
     )

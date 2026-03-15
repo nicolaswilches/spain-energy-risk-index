@@ -135,8 +135,7 @@ def extract_generation_daily(responses: list[dict]) -> pd.DataFrame:
     return merged
 
 
-
-# REE Spot Price (hourly to daily) 
+# REE Spot Price (hourly to daily)
 # ---------------------------------------------------------------------
 def extract_spot_price_daily(responses: list[dict]) -> pd.DataFrame:
     """Parse REE spot market price (hourly) -> resample to daily mean EUR/MWh."""
@@ -159,7 +158,7 @@ def extract_spot_price_daily(responses: list[dict]) -> pd.DataFrame:
     return df
 
 
-# Open-Meteo Weather (daily native) 
+# Open-Meteo Weather (daily native)
 # ---------------------------------------------------------------------
 def extract_weather_daily(responses: list[dict]) -> pd.DataFrame:
     """Parse Open-Meteo archive responses -> DataFrame with weather columns."""

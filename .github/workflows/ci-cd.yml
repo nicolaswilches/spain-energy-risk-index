@@ -50,7 +50,7 @@ jobs:
           cat run_id.txt
 
       - name: Lint
-        run: flake8 app.py train.py test_api.py src/
+        run: flake8 app.py train.py tests/test_api.py src/
 
       - name: Build Docker image
         run: docker build -t grid-risk-app .
@@ -64,7 +64,7 @@ jobs:
           # Verify Web UI is served
           curl -f http://localhost:9696/ || (docker logs grid-risk && exit 1)
           # Run integration tests (including the new CORS test)
-          pytest -v test_api.py -k "not test_predict_endpoint"
+          pytest -v tests/test_api.py -k "not test_predict_endpoint"
           docker stop grid-risk && docker rm grid-risk
 
       - name: Log in to GitHub Container Registry

@@ -1,4 +1,5 @@
-"""Integration tests for the Spain Energy Grid Risk Index API.
+"""
+Integration tests for the Spain Energy Grid Risk Index API.
 
 Requires the server running (e.g., via Docker or `python app.py`).
 Tests issue real HTTP requests against localhost:9696.

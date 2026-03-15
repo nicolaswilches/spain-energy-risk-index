@@ -1,8 +1,18 @@
 """
 Module 1: Constants, API URLs, indicator IDs, and column mappings for daily pipeline.
+Now loads configuration from a centralized settings.json file.
 """
 
+import json
 from datetime import date
+from pathlib import Path
+
+# Load settings.json
+ROOT = Path(__file__).resolve().parent.parent.parent
+CONFIG_PATH = ROOT / "config" / "settings.json"
+
+with open(CONFIG_PATH, "r") as f:
+    _cfg = json.load(f)
 
 # ---------------------------------------------------------------------
 # 1. Date ranges: From 2021 to current date
@@ -11,73 +21,42 @@ DEFAULT_END = date.today()
 
 # ---------------------------------------------------------------------
 # 2. BASE URL + GEO
-# - Define base_url for REE API
-# - Location parameter
-REE_BASE_URL = "https://apidatos.ree.es/en/datos"
-REE_GEO_LIMIT = "peninsular"
-
+REE_BASE_URL = _cfg["api"]["ree_base_url"]
+REE_GEO_LIMIT = _cfg["api"]["ree_geo_limit"]
 
 # ---------------------------------------------------------------------
-# 3. API ENDPOINTS: DEMAND, GENERATION, PRICE
-# Define as dict() the end-points used for demand, generation and prices
-REE_ENDPOINTS = {
-    "demand": "demanda/demanda-tiempo-real",  # hourly → resample daily
-    "generation_mix": "generacion/estructura-generacion",  # daily native
-    "spot_price": "mercados/precios-mercados-tiempo-real",  # hourly → daily
-}
+# 3. API ENDPOINTS
+REE_ENDPOINTS = _cfg["endpoints"]["ree"]
 
 # ---------------------------------------------------------------------
 # 4. API PARAMETERS: DEMAND
-# Define dict() with:
-# - keys contain the variable names used in this project for demand
-# - values contain the titles used in the 'demand' end-point for the REE API
-REE_DEMAND_TITLES = {
-    "actual_demand_mw": "Real",
-    "forecast_demand_mw": "Forecasted",
-}
+REE_DEMAND_TITLES = _cfg["api_parameters"]["demand_titles"]
 
 # ---------------------------------------------------------------------
 # 5. API PARAMETERS: GENERATION
-# Define dict() with:
-# - keys contain the variable names used in this project for generation
-# - values contain the titles used in the 'generation_mix' endpoint of the REE API
-REE_GENERATION_TITLES = {
-    "gen_wind_mw": "Wind",
-    "gen_solar_pv_mw": "Solar photovoltaic",
-    "gen_hydro_mw": "Hydro",
-    "gen_combined_cycle_mw": "Combined cycle",
-    "gen_nuclear_mw": "Nuclear",
-}
+REE_GENERATION_TITLES = _cfg["api_parameters"]["generation_titles"]
 
 # ---------------------------------------------------------------------
 # 6. API PARAMETERS: PRICE
-# Title used for spot prices of energy in the REE API
-REE_SPOT_TITLE = "Spot market price"  # EUR/MWh
-
+REE_SPOT_TITLE = _cfg["api_parameters"]["spot_title"]
 
 # ---------------------------------------------------------------------
 # 7. BASE URLS FOR OPEN METEO
-OPEN_METEO_ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
-OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+OPEN_METEO_ARCHIVE_URL = _cfg["api"]["open_meteo_archive_url"]
+OPEN_METEO_FORECAST_URL = _cfg["api"]["open_meteo_forecast_url"]
 
 # ---------------------------------------------------------------------
 # 8. LOCATION PARAMETERS FOR SPAIN
-WEATHER_LAT = 40.41
-WEATHER_LON = -3.70
-WEATHER_TIMEZONE = "Europe/Madrid"
+WEATHER_LAT = _cfg["location"]["weather_lat"]
+WEATHER_LON = _cfg["location"]["weather_lon"]
+WEATHER_TIMEZONE = _cfg["location"]["weather_timezone"]
 
-WEATHER_DAILY_VARS = [
-    "temperature_2m_max",
-    "temperature_2m_min",
-    "wind_speed_10m_max",
-    "shortwave_radiation_sum",
-    "precipitation_sum",
-]
+WEATHER_DAILY_VARS = _cfg["features"]["weather_daily_vars"]
 
 # ---------------------------------------------------------------------
 # 9. HEATING AND COOLING BASELINE TEMPERATURES
-HDD_BASE_TEMP = 18.0
-CDD_BASE_TEMP = 24.0
+HDD_BASE_TEMP = _cfg["features"]["hdd_base_temp"]
+CDD_BASE_TEMP = _cfg["features"]["cdd_base_temp"]
 
 # ---------------------------------------------------------------------
 # 10. OUTPUT SCHEMA
@@ -112,12 +91,12 @@ OUTPUT_COLUMNS = [
 ]
 
 # ---------------------------------------------------------------------
-# 11. VALIDATION THRESHOLDDS
-DEMAND_MIN_MW = 15_000  # daily mean demand floor
-DEMAND_MAX_MW = 50_000  # daily mean demand ceiling
-GENERATION_MIN_MW = 0
-MAX_CONSECUTIVE_GAP_DAYS = 3
-MAX_MISSING_PCT = 2.0  # percent — slightly more tolerant for daily
+# 11. VALIDATION THRESHOLDS
+DEMAND_MIN_MW = _cfg["validation"]["demand_min_mw"]
+DEMAND_MAX_MW = _cfg["validation"]["demand_max_mw"]
+GENERATION_MIN_MW = _cfg["validation"]["generation_min_mw"]
+MAX_CONSECUTIVE_GAP_DAYS = _cfg["validation"]["max_consecutive_gap_days"]
+MAX_MISSING_PCT = _cfg["validation"]["max_missing_pct"]
 
 # ---------------------------------------------------------------------
 # 12. OUTPUT DF PATH

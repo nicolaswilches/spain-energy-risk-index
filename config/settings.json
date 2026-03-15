@@ -1,0 +1,52 @@
+{
+  "api": {
+    "ree_base_url": "https://apidatos.ree.es/en/datos",
+    "ree_geo_limit": "peninsular",
+    "open_meteo_archive_url": "https://archive-api.open-meteo.com/v1/archive",
+    "open_meteo_forecast_url": "https://api.open-meteo.com/v1/forecast"
+  },
+  "endpoints": {
+    "ree": {
+      "demand": "demanda/demanda-tiempo-real",
+      "generation_mix": "generacion/estructura-generacion",
+      "spot_price": "mercados/precios-mercados-tiempo-real"
+    }
+  },
+  "api_parameters": {
+    "demand_titles": {
+      "actual_demand_mw": "Real",
+      "forecast_demand_mw": "Forecasted"
+    },
+    "generation_titles": {
+      "gen_wind_mw": "Wind",
+      "gen_solar_pv_mw": "Solar photovoltaic",
+      "gen_hydro_mw": "Hydro",
+      "gen_combined_cycle_mw": "Combined cycle",
+      "gen_nuclear_mw": "Nuclear"
+    },
+    "spot_title": "Spot market price"
+  },
+  "location": {
+    "weather_lat": 40.41,
+    "weather_lon": -3.70,
+    "weather_timezone": "Europe/Madrid"
+  },
+  "features": {
+    "weather_daily_vars": [
+      "temperature_2m_max",
+      "temperature_2m_min",
+      "wind_speed_10m_max",
+      "shortwave_radiation_sum",
+      "precipitation_sum"
+    ],
+    "hdd_base_temp": 18.0,
+    "cdd_base_temp": 24.0
+  },
+  "validation": {
+    "demand_min_mw": 15000,
+    "demand_max_mw": 50000,
+    "generation_min_mw": 0,
+    "max_consecutive_gap_days": 3,
+    "max_missing_pct": 2.0
+  }
+}

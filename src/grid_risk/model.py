@@ -79,7 +79,7 @@ def ridge_baseline(
     y_train: np.ndarray,
     X_eval: np.ndarray,
     y_eval: np.ndarray,
-) -> tuple[Ridge, BaselineResult:BaselineResult]:
+) -> tuple[Ridge, BaselineResult]:
     """
     Fits a Ridge model using historical Risk Indexes.
 

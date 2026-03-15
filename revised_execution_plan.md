@@ -50,7 +50,7 @@ Ensure best practices and a proper project structure are used.
 ### 2. Phase 1: Data Engineering & API Integration
 
 **Objective:** Fetch, clean, and merge three data streams into a single Daily Pandas/Polars DataFrame.
-**Update:** We now possess a token provided by the REE to access their data. This might be useful for data fetching. The token is: "a90d42b9b4583a94529db4d25a7ad67c6c305833f42ea7716f45da6f6bf0bda7"
+**Update:** We now possess a token provided by the REE to access their data. This might be useful for data fetching. The token has been removed from version control for security.
 
 * **Stream A: REData API (Grid Actuals)**
   * *Endpoint:* `https://apidatos.ree.es/en/datos/...`

@@ -382,6 +382,55 @@ def predict_risk(request: PredictionRequest):
         )
 
 
+@app.get("/history")
+def risk_history(days: int = 10):
+    """Return recent risk index values computed from actual data."""
+    if model is None or risk_fit is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Model or risk fit not loaded.",
+        )
+
+    days = min(max(days, 3), 30)
+    today = date.today()
+
+    try:
+        recent_data = _fetch_recent_data(today)
+
+        # Compute risk index for all days in the window
+        factors = compute_core_factors(recent_data)
+        risk_series = transform_risk_index(factors, risk_fit)
+        recent_data["risk_index"] = risk_series
+
+        # Build result for each available day
+        result = []
+        for d in sorted(recent_data.index):
+            ri = recent_data.loc[d, "risk_index"]
+            if pd.isna(ri):
+                continue
+            ri_val = float(np.clip(ri, 0.0, 1.0))
+            cat = assign_risk_category(np.array([ri_val]), risk_fit.thresholds)[0]
+            result.append(
+                {
+                    "date": str(d),
+                    "risk_index": round(ri_val, 4),
+                    "risk_category": cat,
+                }
+            )
+
+        # Return up to `days` most recent entries
+        return {"history": result[-days:]}
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("History fetch failed")
+        raise HTTPException(
+            status_code=500,
+            detail=f"History failed: {str(exc)}",
+        )
+
+
 # Mount the webapp after ALL API routes
 # This serves index.html at the root "/" automatically
 app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")

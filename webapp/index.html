@@ -2,95 +2,453 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Spain Grid Risk Index</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --text-secondary: #64748b;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --low: #22c55e;
+      --stable: #84cc16;
+      --elevated: #eab308;
+      --severe: #f97316;
+      --extreme: #ef4444;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+      --shadow-lg: 0 10px 25px rgba(0,0,0,.08);
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-    .card { background: #1e293b; border-radius: 16px; padding: 40px; width: 420px; box-shadow: 0 25px 50px rgba(0,0,0,0.5); }
-    h1 { font-size: 1.4rem; margin-bottom: 4px; color: #f8fafc; }
-    .subtitle { font-size: 0.85rem; color: #64748b; margin-bottom: 28px; }
-    label { font-size: 0.85rem; color: #94a3b8; display: block; margin-bottom: 6px; }
-    input[type="date"] { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #f1f5f9; font-size: 1rem; margin-bottom: 16px; }
-    input[type="text"] { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #f1f5f9; font-size: 0.9rem; margin-bottom: 20px; }
-    button { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #3b82f6; color: white; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-    button:hover { background: #2563eb; }
-    button:disabled { background: #1e40af; cursor: not-allowed; }
-    .result { margin-top: 24px; padding: 20px; border-radius: 12px; background: #0f172a; border: 1px solid #1e293b; display: none; }
-    .result.show { display: block; }
-    .risk-score { font-size: 3rem; font-weight: 700; text-align: center; margin: 8px 0; }
-    .risk-category { text-align: center; font-size: 1.1rem; font-weight: 600; padding: 4px 16px; border-radius: 20px; display: inline-block; margin: 0 auto; }
-    .center { text-align: center; }
-    .meta { font-size: 0.75rem; color: #475569; margin-top: 12px; text-align: center; }
-    .error { color: #f87171; font-size: 0.9rem; margin-top: 16px; text-align: center; display: none; }
-    .error.show { display: block; }
-    .gauge-wrap { position: relative; height: 8px; background: #1e293b; border-radius: 4px; margin: 12px 0; }
-    .gauge-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
-    .Low    { color: #4ade80; }
-    .Stable { color: #a3e635; }
-    .Elevated { color: #facc15; }
-    .Severe { color: #fb923c; }
-    .Extreme { color: #f87171; }
-    .bg-Low    { background: #4ade80; }
-    .bg-Stable { background: #a3e635; }
-    .bg-Elevated { background: #facc15; }
-    .bg-Severe { background: #fb923c; }
-    .bg-Extreme { background: #f87171; }
-    .badge-Low { background:#14532d; color:#4ade80; }
-    .badge-Stable { background:#1a2e05; color:#a3e635; }
-    .badge-Elevated { background:#422006; color:#facc15; }
-    .badge-Severe { background:#431407; color:#fb923c; }
-    .badge-Extreme { background:#450a0a; color:#f87171; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-icon {
+      width: 36px; height: 36px; background: var(--accent);
+      border-radius: 10px; display: flex; align-items: center;
+      justify-content: center; font-size: 18px; color: white;
+    }
+    .header h1 { font-size: 1.1rem; font-weight: 700; }
+    .header .tag {
+      font-size: 0.7rem; background: #eff6ff; color: var(--accent);
+      padding: 2px 8px; border-radius: 6px; font-weight: 600;
+    }
+
+    /* ---- Layout ---- */
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px 20px 48px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 640px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    /* ---- Cards ---- */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+    .card-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+    }
+    .card-full { grid-column: 1 / -1; }
+
+    /* ---- Prediction Input ---- */
+    .input-row {
+      display: flex; gap: 12px; align-items: flex-end;
+    }
+    .input-group { flex: 1; }
+    .input-group label {
+      display: block; font-size: 0.8rem; font-weight: 500;
+      color: var(--text-secondary); margin-bottom: 4px;
+    }
+    input[type="date"] {
+      width: 100%; padding: 10px 12px; border-radius: 8px;
+      border: 1px solid var(--border); font-size: 0.95rem;
+      color: var(--text); background: var(--bg);
+    }
+    input[type="date"]:focus {
+      outline: none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59,130,246,.15);
+    }
+    .btn {
+      padding: 10px 24px; border-radius: 8px; border: none;
+      background: var(--accent); color: white; font-size: 0.9rem;
+      font-weight: 600; cursor: pointer; transition: background .15s;
+      white-space: nowrap; height: 42px;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ---- Score Display ---- */
+    .score-section { text-align: center; padding: 8px 0; }
+    .score-value {
+      font-size: 3.5rem; font-weight: 800; line-height: 1;
+      margin-bottom: 8px;
+    }
+    .score-label { font-size: 0.85rem; color: var(--text-secondary); }
+
+    /* ---- Category Badge ---- */
+    .badge {
+      display: inline-block; padding: 4px 14px; border-radius: 20px;
+      font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-Low { background: #dcfce7; color: #166534; }
+    .badge-Stable { background: #ecfccb; color: #3f6212; }
+    .badge-Elevated { background: #fef9c3; color: #854d0e; }
+    .badge-Severe { background: #ffedd5; color: #9a3412; }
+    .badge-Extreme { background: #fee2e2; color: #991b1b; }
+
+    /* ---- Gauge ---- */
+    .gauge-track {
+      height: 8px; background: #f1f5f9; border-radius: 4px;
+      margin: 16px 0 4px; overflow: hidden;
+    }
+    .gauge-bar {
+      height: 100%; border-radius: 4px;
+      transition: width .6s ease, background .3s;
+    }
+    .gauge-labels {
+      display: flex; justify-content: space-between;
+      font-size: 0.65rem; color: var(--text-secondary);
+    }
+
+    /* ---- Interpretation ---- */
+    .interpretation {
+      margin-top: 16px; padding: 16px; border-radius: 8px;
+      font-size: 0.85rem; line-height: 1.6;
+      border-left: 4px solid;
+    }
+    .interp-Low { background: #f0fdf4; border-color: var(--low); color: #166534; }
+    .interp-Stable { background: #f7fee7; border-color: var(--stable); color: #3f6212; }
+    .interp-Elevated { background: #fefce8; border-color: var(--elevated); color: #854d0e; }
+    .interp-Severe { background: #fff7ed; border-color: var(--severe); color: #9a3412; }
+    .interp-Extreme { background: #fef2f2; border-color: var(--extreme); color: #991b1b; }
+
+    /* ---- Chart ---- */
+    .chart-wrap { position: relative; height: 220px; }
+
+    /* ---- Legend ---- */
+    .legend {
+      display: flex; flex-wrap: wrap; gap: 12px;
+      margin-top: 12px;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.75rem; color: var(--text-secondary);
+    }
+    .legend-dot {
+      width: 10px; height: 10px; border-radius: 3px;
+    }
+
+    /* ---- Scale ---- */
+    .scale {
+      display: flex; border-radius: 6px; overflow: hidden;
+      height: 6px; margin-top: 12px;
+    }
+    .scale div { flex: 1; }
+
+    /* ---- Thresholds table ---- */
+    .thresholds {
+      width: 100%; border-collapse: collapse;
+      font-size: 0.8rem; margin-top: 12px;
+    }
+    .thresholds th {
+      text-align: left; font-weight: 600;
+      padding: 8px 10px; border-bottom: 1px solid var(--border);
+      color: var(--text-secondary); font-size: 0.7rem;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .thresholds td {
+      padding: 8px 10px; border-bottom: 1px solid #f1f5f9;
+    }
+
+    /* ---- Error ---- */
+    .error-box {
+      margin-top: 12px; padding: 10px 14px; border-radius: 8px;
+      background: #fef2f2; color: #991b1b; font-size: 0.85rem;
+      border: 1px solid #fecaca; display: none;
+    }
+    .error-box.show { display: block; }
+
+    /* ---- Meta ---- */
+    .meta-line {
+      font-size: 0.75rem; color: var(--text-secondary);
+      margin-top: 8px; text-align: center;
+    }
+
+    /* ---- Loading placeholder ---- */
+    .placeholder {
+      color: var(--text-secondary); text-align: center;
+      padding: 32px 0; font-size: 0.9rem;
+    }
+
+    /* ---- Fade in ---- */
+    .fade-in { animation: fadeIn .4s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>⚡ Spain Grid Risk Index</h1>
-    <p class="subtitle">Day-ahead systemic tension forecast · LightGBM + REE data</p>
 
-    <label>API Endpoint</label>
-    <input type="text" id="apiUrl" value="http://localhost:9696" />
-
-    <label>Target Date</label>
-    <input type="date" id="targetDate" />
-
-    <button id="predictBtn" onclick="predict()">Predict Risk</button>
-
-    <div class="error" id="errorBox"></div>
-
-    <div class="result" id="resultBox">
-      <div class="center">
-        <div class="risk-score" id="scoreDisplay">—</div>
-        <span class="risk-category" id="categoryBadge">—</span>
-      </div>
-      <div class="gauge-wrap">
-        <div class="gauge-fill" id="gaugeFill" style="width:0%"></div>
-      </div>
-      <div class="meta" id="metaInfo"></div>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">&#9889;</div>
+    <div>
+      <h1>Spain Grid Risk Index</h1>
     </div>
+    <span class="tag">LIVE</span>
+  </div>
+
+  <div class="container">
+
+    <!-- Row 1: Input + Score -->
+    <div class="grid">
+
+      <!-- Prediction Input -->
+      <div class="card">
+        <div class="card-title">Day-Ahead Forecast</div>
+        <div class="input-row">
+          <div class="input-group">
+            <label for="targetDate">Target Date</label>
+            <input type="date" id="targetDate" />
+          </div>
+          <button class="btn" id="predictBtn" onclick="predict()">Predict</button>
+        </div>
+        <div class="error-box" id="errorBox"></div>
+
+        <!-- Interpretation (shown after prediction) -->
+        <div id="interpretationBox"></div>
+      </div>
+
+      <!-- Score Card -->
+      <div class="card" id="scoreCard">
+        <div class="card-title">Predicted Risk Level</div>
+        <div id="scoreContent">
+          <div class="placeholder">Select a date and click Predict</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Row 2: History Chart (full width) -->
+    <div class="grid">
+      <div class="card card-full">
+        <div class="card-title">Recent Risk History</div>
+        <div class="chart-wrap">
+          <canvas id="historyChart"></canvas>
+        </div>
+        <div class="legend" id="chartLegend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--low)"></div>Low</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--stable)"></div>Stable</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--elevated)"></div>Elevated</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--severe)"></div>Severe</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--extreme)"></div>Extreme</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: Scale Reference -->
+    <div class="grid">
+      <div class="card card-full">
+        <div class="card-title">Risk Scale Reference</div>
+        <div class="scale">
+          <div style="background:var(--low)"></div>
+          <div style="background:var(--stable)"></div>
+          <div style="background:var(--elevated)"></div>
+          <div style="background:var(--severe)"></div>
+          <div style="background:var(--extreme)"></div>
+        </div>
+        <table class="thresholds">
+          <thead>
+            <tr><th>Category</th><th>Range</th><th>Meaning</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="badge badge-Low">Low</span></td><td>0.00 - 0.20</td><td>Grid operating with comfortable margins. Routine conditions.</td></tr>
+            <tr><td><span class="badge badge-Stable">Stable</span></td><td>0.20 - 0.40</td><td>Normal operations. Minor weather or demand fluctuations.</td></tr>
+            <tr><td><span class="badge badge-Elevated">Elevated</span></td><td>0.40 - 0.60</td><td>Increased tension. Flexibility reserves tightening; monitor conditions.</td></tr>
+            <tr><td><span class="badge badge-Severe">Severe</span></td><td>0.60 - 0.80</td><td>High stress. Limited flexibility; prepare contingency measures.</td></tr>
+            <tr><td><span class="badge badge-Extreme">Extreme</span></td><td>0.80 - 1.00</td><td>Critical risk. Demand/supply imbalance likely; activate emergency protocols.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 
   <script>
-    // Set default date to tomorrow
+    // ---- Config ----
+    const CAT_COLORS = {
+      Low: '#22c55e', Stable: '#84cc16', Elevated: '#eab308',
+      Severe: '#f97316', Extreme: '#ef4444'
+    };
+
+    const INTERPRETATIONS = {
+      Low: 'The grid is expected to operate within comfortable safety margins. Renewable output and flexible generation are well-matched to demand. No special measures required.',
+      Stable: 'Conditions are within normal range. Minor fluctuations in demand or weather may occur but flexible reserves are adequate. Standard monitoring applies.',
+      Elevated: 'Grid tension is rising. Flexibility reserves (hydro + combined-cycle) are tightening relative to net load. Operators should increase monitoring frequency and review contingency readiness.',
+      Severe: 'Significant stress expected. The gap between demand and flexible supply is narrowing. Pre-position backup generation and coordinate with neighboring grids. Demand-response programs may be needed.',
+      Extreme: 'Critical risk of supply-demand imbalance. The model predicts conditions in the top decile of historical stress. Activate emergency protocols, prepare load-shedding plans, and ensure all dispatchable capacity is available.'
+    };
+
+    // ---- Set default date to tomorrow ----
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     document.getElementById('targetDate').value = tomorrow.toISOString().split('T')[0];
 
+    // ---- Chart setup ----
+    let historyChart = null;
+
+    function initChart() {
+      const ctx = document.getElementById('historyChart').getContext('2d');
+      historyChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Risk Index',
+            data: [],
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.08)',
+            borderWidth: 2.5,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            pointBackgroundColor: [],
+            pointBorderColor: [],
+            pointBorderWidth: 2,
+            fill: true,
+            tension: 0.3,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1e293b',
+              titleFont: { size: 12, weight: '600' },
+              bodyFont: { size: 12 },
+              padding: 10,
+              cornerRadius: 8,
+              callbacks: {
+                label: (ctx) => {
+                  const val = ctx.parsed.y;
+                  const cat = getCategoryFromValue(val);
+                  return `Risk: ${val.toFixed(3)} (${cat})`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              min: 0, max: 1,
+              grid: { color: '#f1f5f9' },
+              ticks: {
+                stepSize: 0.2,
+                font: { size: 11 },
+                color: '#94a3b8'
+              }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { font: { size: 11 }, color: '#94a3b8' }
+            }
+          }
+        }
+      });
+    }
+
+    function getCategoryFromValue(v) {
+      if (v <= 0.2) return 'Low';
+      if (v <= 0.4) return 'Stable';
+      if (v <= 0.6) return 'Elevated';
+      if (v <= 0.8) return 'Severe';
+      return 'Extreme';
+    }
+
+    function updateChart(history) {
+      if (!historyChart) initChart();
+
+      const labels = history.map(h => {
+        const d = new Date(h.date + 'T00:00:00');
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+      });
+      const values = history.map(h => h.risk_index);
+      const colors = history.map(h => CAT_COLORS[h.risk_category] || '#94a3b8');
+
+      historyChart.data.labels = labels;
+      historyChart.data.datasets[0].data = values;
+      historyChart.data.datasets[0].pointBackgroundColor = colors;
+      historyChart.data.datasets[0].pointBorderColor = colors;
+      historyChart.update();
+    }
+
+    // ---- Fetch history on load ----
+    async function loadHistory() {
+      try {
+        const res = await fetch('/history?days=10');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.history && data.history.length > 0) {
+          updateChart(data.history);
+        }
+      } catch (e) {
+        console.warn('History load failed:', e);
+      }
+    }
+
+    // ---- Predict ----
     async function predict() {
       const btn = document.getElementById('predictBtn');
       const errorBox = document.getElementById('errorBox');
-      const resultBox = document.getElementById('resultBox');
-      const apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
       const targetDate = document.getElementById('targetDate').value;
 
       if (!targetDate) { showError('Please select a date.'); return; }
 
       btn.disabled = true;
-      btn.textContent = 'Fetching live data…';
+      btn.textContent = 'Loading...';
       errorBox.classList.remove('show');
-      resultBox.classList.remove('show');
 
       try {
-        const res = await fetch(`${apiUrl}/predict`, {
+        const res = await fetch('/predict', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ target_date: targetDate })
@@ -103,40 +461,54 @@
 
         const data = await res.json();
         showResult(data);
+        loadHistory(); // refresh chart
       } catch (e) {
         showError(e.message);
       } finally {
         btn.disabled = false;
-        btn.textContent = 'Predict Risk';
+        btn.textContent = 'Predict';
       }
     }
 
     function showResult(data) {
       const score = data.risk_index;
       const cat = data.risk_category;
+      const color = CAT_COLORS[cat] || '#94a3b8';
 
-      document.getElementById('scoreDisplay').textContent = score.toFixed(3);
-      document.getElementById('scoreDisplay').className = `risk-score ${cat}`;
+      // Score card
+      document.getElementById('scoreContent').innerHTML = `
+        <div class="score-section fade-in">
+          <div class="score-value" style="color:${color}">${score.toFixed(3)}</div>
+          <div><span class="badge badge-${cat}">${cat}</span></div>
+          <div class="gauge-track">
+            <div class="gauge-bar" style="width:${(score*100).toFixed(1)}%;background:${color}"></div>
+          </div>
+          <div class="gauge-labels"><span>0.0 Safe</span><span>1.0 Critical</span></div>
+          <div class="meta-line">
+            ${data.date} &middot; Model ${data.model_version.slice(0,8)}
+          </div>
+        </div>
+      `;
 
-      const badge = document.getElementById('categoryBadge');
-      badge.textContent = cat;
-      badge.className = `risk-category badge-${cat}`;
-
-      const fill = document.getElementById('gaugeFill');
-      fill.style.width = `${(score * 100).toFixed(1)}%`;
-      fill.className = `gauge-fill bg-${cat}`;
-
-      document.getElementById('metaInfo').textContent =
-        `Date: ${data.date}  ·  Model: ${data.model_version.slice(0, 8)}`;
-
-      document.getElementById('resultBox').classList.add('show');
+      // Interpretation
+      const interp = INTERPRETATIONS[cat] || '';
+      document.getElementById('interpretationBox').innerHTML = `
+        <div class="interpretation interp-${cat} fade-in" style="margin-top:16px">
+          <strong>${cat} Risk for ${data.date}</strong><br/>
+          ${interp}
+        </div>
+      `;
     }
 
     function showError(msg) {
       const box = document.getElementById('errorBox');
-      box.textContent = `Error: ${msg}`;
+      box.textContent = msg;
       box.classList.add('show');
     }
+
+    // ---- Init ----
+    initChart();
+    loadHistory();
   </script>
 </body>
 </html>

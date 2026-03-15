@@ -102,7 +102,6 @@ def main() -> None:
 
     # ------------------------------------------------------------------
     # Fit or load Risk Index
-    # ------------------------------------------------------------------
     risk_fit_path = ARTIFACTS / "risk_index_fit.joblib"
     if args.full and risk_fit_path.exists():
         fit: RiskIndexFit = joblib.load(risk_fit_path)
@@ -121,7 +120,6 @@ def main() -> None:
 
     # ------------------------------------------------------------------
     # MLflow setup (local file-based)
-    # ------------------------------------------------------------------
     mlflow.set_tracking_uri(f"sqlite:///{ROOT / 'mlflow.db'}")
     mlflow.set_experiment(MLFLOW_EXPERIMENT)
 
@@ -138,7 +136,6 @@ def main() -> None:
 
         # --------------------------------------------------------------
         # 1. Baselines
-        # --------------------------------------------------------------
         print("\n-- Baseline Comparisons --")
         persist_test = persistence_baseline(y_test, test["risk_index_lag_1d"].values)
         _, ridge_test = ridge_baseline(X_train.values, y_train, X_test.values, y_test)
@@ -151,7 +148,6 @@ def main() -> None:
 
         # --------------------------------------------------------------
         # 2. Optuna tuning
-        # --------------------------------------------------------------
         best_params: dict = {}
         if not args.skip_tuning:
             print(f"\n-- Optuna Tuning ({args.n_trials} trials) --")
@@ -167,7 +163,6 @@ def main() -> None:
 
         # --------------------------------------------------------------
         # 3. Train final LightGBM
-        # --------------------------------------------------------------
         print("\n-- Training Final LightGBM --")
         lgbm_model = train_lightgbm(
             X_train.values, y_train, X_val.values, y_val,
@@ -177,7 +172,6 @@ def main() -> None:
 
         # --------------------------------------------------------------
         # 4. Evaluate on test set
-        # --------------------------------------------------------------
         y_pred_test = predict(lgbm_model, X_test.values)
         y_baseline_test = test["risk_index_lag_1d"].values
 
@@ -216,7 +210,6 @@ def main() -> None:
 
     # ------------------------------------------------------------------
     # 5. Save artifacts to models/ for CI deployment
-    # ------------------------------------------------------------------
     if DEPLOYMENT_MODEL_DIR.exists():
         shutil.rmtree(DEPLOYMENT_MODEL_DIR)
     DEPLOYMENT_MODEL_DIR.mkdir(parents=True)

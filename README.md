@@ -1,9 +1,13 @@
 # Spain Energy Grid Risk Index ⚡
 
+[![CI/CD](https://github.com/nicolaswilches/spain-energy-risk-index/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/nicolaswilches/spain-energy-risk-index/actions/workflows/ci-cd.yml)
+![Python](https://img.shields.io/badge/python-3.12-blue)
+![Docker](https://img.shields.io/badge/docker-ghcr.io-blue)
+
 A production-grade machine learning system that forecasts the **next-day systemic risk** of Spain's electrical grid. The model predicts a continuous Grid Risk Index (0 = stable, 1 = critical) using a quantile LightGBM regressor trained on REE demand, generation mix, weather, and spot price data — deployed as a containerized FastAPI service with full CI/CD automation.
 
-> **IE University — MLOps Final Project · Group 8**  
-> Alberto Cabezudo · Madelyn Ehni · Gilles Hamers · Nicolás Higuera · Salah Mneimne
+> **Authors:**
+> Alberto Cabezudo · Madelyn Ehni · Gilles Hamers · Nicolás Higuera Wilches · Salah Mneimne
 
 ---
 
@@ -22,7 +26,7 @@ A production-grade machine learning system that forecasts the **next-day systemi
 - [MLflow Experiment Tracking](#mlflow-experiment-tracking)
 - [Running Tests](#running-tests)
 - [Deployment on Render](#deployment-on-render)
-- [Best Practices Checklist](#best-practices-checklist)
+- [Tips & Best Practices](#tips--best-practices)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -68,15 +72,18 @@ A LightGBM quantile regressor predicts tomorrow's risk index using 15 features:
 
 **Risk Categories (5-tier):**
 
-- `Low` — ≤ p20 — Normal operations
-- `Stable` — p20 to p40 — Slightly elevated, no action needed
-- `Elevated` — p40 to p60 — Monitor closely
-- `Severe` — p60 to p80 — Prepare flexible reserves
-- `Extreme` — > p80 — High-priority intervention required
+| Category | Threshold | Action |
+|----------|-----------|--------|
+| `Low` | ≤ p20 | Normal operations |
+| `Stable` | p20 – p40 | Slightly elevated, no action needed |
+| `Elevated` | p40 – p60 | Monitor closely |
+| `Severe` | p60 – p80 | Prepare flexible reserves |
+| `Extreme` | > p80 | High-priority intervention required |
 
 ---
 
 ## Project Structure
+
 ```
 spain-energy-risk-index/
 │
@@ -92,34 +99,50 @@ spain-energy-risk-index/
 │
 ├── scripts/
 │   ├── run_extraction.py       # Phase 1 CLI: fetch data from REE + Open-Meteo APIs
-│   ├── run_features.py         # Phase 2 CLI: build features + fit risk index
-│   └── train_model.py          # Phase 3 CLI: train baselines + LightGBM + evaluate
+│   └── run_features.py         # Phase 2 CLI: build features + fit risk index
 │
 ├── .github/
 │   └── workflows/
 │       ├── ci-cd.yml           # Main CI/CD pipeline (train → lint → build → push)
 │       └── train.yml           # Reusable training workflow (sample data, no tuning)
 │
+├── config/
+│   └── settings.json           # Centralized API URLs, endpoints, and thresholds
+│
+├── data/
+│   ├── sample_train.parquet    # Sample training data committed for CI (100 rows)
+│   ├── sample_val.parquet      # Sample validation data for CI (30 rows)
+│   └── sample_test.parquet     # Sample test data for CI (50 rows)
+│
+├── models/                     # Artifacts baked into Docker at build time
+│   ├── lgbm_model.joblib
+│   ├── risk_index_fit.joblib
+│   ├── metrics.json
+│   └── feature_importance.csv
+│
 ├── notebooks/
 │   └── etl_modeling.ipynb      # Exploratory analysis and model prototyping
 │
-├── data/
-│   ├── sample_train.parquet    # Sample training data (for CI)
-│   ├── sample_val.parquet      # Sample validation data (for CI)
-│   └── sample_test.parquet     # Sample test data (for CI)
+├── tests/
+│   ├── test_api.py             # Integration tests for all FastAPI endpoints
+│   └── test_features.py        # Unit tests for feature engineering pipeline
 │
 ├── webapp/
-│   └── index.html              # Frontend web app (connects to FastAPI)
+│   └── index.html              # Standalone frontend web app (no server required)
+│
+├── docs/
+│   ├── LESSONS.md              # Engineering lessons learned
+│   ├── TASKS.md                # Project task tracking
+│   └── project_proposal/       # Original project proposal (PDF + LaTeX)
 │
 ├── app.py                      # FastAPI prediction service (live REE + weather data)
 ├── train.py                    # CI training script (uses sample data, self-contained)
 ├── Dockerfile                  # Containerized service (model baked in at build time)
+├── Makefile                    # Developer shortcuts for pipeline, Docker, and tests
 ├── render.yaml                 # Render.com deployment manifest
-├── test_api.py                 # Integration tests for the API
 ├── requirements.txt            # Pinned production dependencies
 ├── pyproject.toml              # Package metadata and optional dependencies
 ├── run_id.txt                  # MLflow run ID of the deployed model
-├── LESSONS.md                  # Engineering lessons learned
 └── .gitignore
 ```
 
@@ -139,16 +162,12 @@ Download from [python.org](https://www.python.org/downloads/) if needed.
 ```bash
 git --version
 ```
-Download from [git-scm.com](https://git-scm.com/downloads) if needed.
 
 **Docker Desktop**
 ```bash
 docker --version
 ```
-Download from [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop) if needed. Make sure Docker Desktop is **running** before building images.
-
-**VS Code (recommended)**  
-Download from [code.visualstudio.com](https://code.visualstudio.com/) with the Python extension.
+Download from [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop). Make sure Docker Desktop is **running** before building images.
 
 ---
 
@@ -172,8 +191,6 @@ source .venv/bin/activate
 .venv\Scripts\activate
 ```
 
-You should see `(.venv)` at the start of your terminal prompt.
-
 ### 3. Install dependencies
 ```bash
 pip install -r requirements.txt
@@ -195,25 +212,27 @@ export PYTHONPATH=src
 $env:PYTHONPATH="src"
 ```
 
-> **Note:** You need to re-run this export each time you open a new terminal. To make it permanent, add it to your `~/.zshrc` or `~/.bashrc`.
+> To make it permanent, add `export PYTHONPATH=src` to your `~/.zshrc` or `~/.bashrc`.
 
 ---
 
 ## Running the Full Pipeline
 
-Run these steps in order. Each step produces output files consumed by the next.
+Run these steps in order. Each step produces output files consumed by the next. The `Makefile` provides shortcuts for each phase.
 
 ### Phase 1 — Data Extraction
 
 Fetches daily data from the **REE public API** and **Open-Meteo** weather archive. No API keys or authentication required.
+
 ```bash
-python scripts/run_extraction.py
+make extract
+# or: PYTHONPATH=src python scripts/run_extraction.py
 
 # Optional: custom date range
-python scripts/run_extraction.py --start 2021-01-01 --end 2025-12-31
+PYTHONPATH=src python scripts/run_extraction.py --start 2021-01-01 --end 2025-12-31
 ```
 
-⏳ Takes **10–15 minutes** due to REE API rate limiting (1 request/second).
+> Takes **10–15 minutes** due to REE API rate limiting (1 request/second).
 
 **Output:** `data/merged_daily_data.parquet`
 
@@ -228,8 +247,10 @@ Data streams fetched:
 ### Phase 2 — Feature Engineering
 
 Computes the three core risk factors, fits the PCA-based Grid Risk Index on training data only, assigns risk categories, and adds lag features.
+
 ```bash
-python scripts/run_features.py
+make features
+# or: PYTHONPATH=src python scripts/run_features.py
 ```
 
 **Output:**
@@ -248,18 +269,19 @@ The chronological split is strict — no shuffling — to prevent data leakage.
 ### Phase 3 — Model Training
 
 Trains three models in sequence (persistence baseline → Ridge baseline → LightGBM with Optuna tuning) and evaluates on the held-out chronological test set.
-```bash
-# Full training with 30 Optuna hyperparameter trials (recommended)
-python scripts/train_model.py --n-trials 30
 
-# Fast run, skip Optuna tuning
-python scripts/train_model.py --skip-tuning
+```bash
+# Full training with 30 Optuna hyperparameter trials (recommended, ~5–10 min)
+make train
+# or: PYTHONPATH=src python train.py --n-trials 30
+
+# Fast run, skip Optuna tuning (~30 sec)
+make train-fast
+# or: PYTHONPATH=src python train.py --skip-tuning
 
 # Custom quantile alpha (default 0.90)
-python scripts/train_model.py --quantile-alpha 0.95
+PYTHONPATH=src python train.py --quantile-alpha 0.95
 ```
-
-⏳ With `--n-trials 30`, takes **5–10 minutes** depending on your machine.
 
 **Output:**
 ```
@@ -269,7 +291,6 @@ data/artifacts/feature_importance.csv      # feature importance scores
 data/artifacts/metrics.json                # all evaluation metrics
 data/artifacts/test_predictions.parquet    # test set predictions
 run_id.txt                                 # MLflow run ID
-mlflow.db                                  # MLflow SQLite tracking database
 ```
 
 Evaluation metrics printed to terminal:
@@ -280,14 +301,15 @@ Evaluation metrics printed to terminal:
 
 ---
 
-### Copy artifacts for Docker
+### Promote Artifacts for Docker
 
-After training, copy the model artifacts into `models/` so Docker can bake them into the image:
+After training, promote the model artifacts into `models/` so Docker can bake them into the image:
+
 ```bash
-mkdir -p models
-cp data/artifacts/lgbm_model.joblib models/
-cp data/artifacts/risk_index_fit.joblib models/
+make promote
 ```
+
+This copies `lgbm_model.joblib`, `risk_index_fit.joblib`, `metrics.json`, and `feature_importance.csv` from `data/artifacts/` into `models/`.
 
 ---
 
@@ -295,12 +317,14 @@ cp data/artifacts/risk_index_fit.joblib models/
 
 ### Build the image
 ```bash
-docker build -t grid-risk-app .
+make docker-build
+# or: docker build -t grid-risk-app .
 ```
 
 ### Run the container
 ```bash
-docker run -d -p 9696:9696 --name grid-risk grid-risk-app
+make docker-run
+# or: docker run -d -p 9696:9696 --name grid-risk grid-risk-app
 ```
 
 ### Verify it started correctly
@@ -337,7 +361,8 @@ Expected response:
 
 ### Stop and remove the container
 ```bash
-docker stop grid-risk && docker rm grid-risk
+make docker-stop
+# or: docker stop grid-risk && docker rm grid-risk
 ```
 
 ---
@@ -345,15 +370,16 @@ docker stop grid-risk && docker rm grid-risk
 ## Web App
 
 A lightweight frontend is included at `webapp/index.html`. It requires no server — open it directly in a browser while the Docker container is running.
+
 ```bash
 # Mac
 open webapp/index.html
 
-# Windows
-start webapp/index.html
-
 # Linux
 xdg-open webapp/index.html
+
+# Windows
+start webapp/index.html
 ```
 
 The app connects to `http://localhost:9696` by default. Select a target date and click **Predict Risk** to get a live prediction with a visual risk gauge and colour-coded category badge.
@@ -362,6 +388,8 @@ To point the webapp at the production Render deployment, update the default valu
 ```html
 <input type="text" id="apiUrl" value="https://spain-grid-risk.onrender.com" />
 ```
+
+> CORS must be enabled in `app.py` (`CORSMiddleware`). Rebuild the Docker image after any `app.py` changes.
 
 ---
 
@@ -411,7 +439,7 @@ Fetches the last 10 days of live data from REE and Open-Meteo, computes features
 Response fields:
 - `date` — the date predicted for (ISO 8601)
 - `risk_index` — predicted quantile risk score, float between 0.0 and 1.0
-- `risk_category` — one of: Low / Stable / Elevated / Severe / Extreme
+- `risk_category` — one of: `Low` / `Stable` / `Elevated` / `Severe` / `Extreme`
 - `model_version` — MLflow run ID of the model in production
 
 Error responses:
@@ -420,30 +448,31 @@ Error responses:
 - `502` — could not fetch data from REE API
 - `500` — prediction failed, see server logs
 
-> **Note:** Each `/predict` call fetches live data from external APIs. Expect a response time of 5–15 seconds.
+> Each `/predict` call fetches live data from external APIs. Expect a response time of 5–15 seconds.
 
 ---
 
 ## CI/CD Pipeline
 
 The pipeline runs automatically on every push to `main` via GitHub Actions.
+
 ```
 Push to main
     │
     ▼
-[train.yml] Train model on sample data
-            python train.py --skip-tuning
+[train.yml]  Train model on sample data
+             python train.py --skip-tuning
     │
     ▼
-[ci-cd.yml] Download trained model artifact
+[ci-cd.yml]  Download trained model artifact
     │
     ├── Lint with flake8
-    │   (app.py, train.py, test_api.py, src/)
+    │   (app.py, train.py, src/, tests/)
     │
     ├── Build Docker image
     │   (model artifacts baked in)
     │
-    ├── Start container → curl /health → pytest test_api.py
+    ├── Start container → curl /health → pytest tests/test_api.py
     │
     └── Push to GitHub Container Registry (GHCR)
             ghcr.io/nicolaswilches/spain-energy-risk-index:latest
@@ -477,23 +506,25 @@ What is tracked per run:
 
 ## Running Tests
 
-Integration tests require the API server to be running.
+Integration tests require the API server to be running (via Docker).
 
 ### Start the server
 ```bash
-docker run -d -p 9696:9696 --name grid-risk grid-risk-app
+make docker-run
 ```
 
 ### Run all tests
 ```bash
-pytest test_api.py -v
+make test
+# or: pytest tests/ -v
 ```
 
 What is tested:
-- `test_root_endpoint` — GET `/` returns 200 with message containing "Spain"
-- `test_health_endpoint` — GET `/health` returns `status: ok`, both model and risk_fit loaded
-- `test_predict_endpoint` — POST `/predict` returns valid `risk_index` in [0, 1] and a valid category
-- `test_predict_invalid_date` — POST `/predict` with a bad date returns 422
+- `test_api.py::test_root_endpoint` — GET `/` returns 200 with message containing "Spain"
+- `test_api.py::test_health_endpoint` — GET `/health` returns `status: ok`, both model and risk_fit loaded
+- `test_api.py::test_predict_endpoint` — POST `/predict` returns valid `risk_index` in [0, 1] and a valid category
+- `test_api.py::test_predict_invalid_date` — POST `/predict` with a bad date returns 422
+- `test_features.py` — Unit tests for feature engineering pipeline
 
 > `test_predict_endpoint` makes a live call to REE. It is excluded in CI with `pytest -k "not test_predict_endpoint"` to avoid external API dependency in automated runs.
 
@@ -517,32 +548,28 @@ The `render.yaml` manifest configures deployment on [Render.com](https://render.
 
 After each push to `main`, CI/CD pushes a new `:latest` image to GHCR. To deploy the updated image on Render, click **Manual Deploy → Deploy latest commit** in the Render dashboard.
 
-Environment variable to set in Render dashboard:
-- `PORT` = `9696`
-
 ---
 
-## Best Practices Checklist
+## Tips & Best Practices
 
-- **Modularization** — `src/grid_risk/` split into 7 focused modules: `api_client`, `extractors`, `cleaning`, `pipeline`, `config`, `features`, `model`
-- **Configuration management** — all constants, API URLs, column mappings, and thresholds centralized in `src/grid_risk/config.py`
-- **Logging and monitoring** — `logging` throughout all modules and `app.py`; MLflow tracks all experiments, metrics, and model artifacts
-- **Error handling** — `try/except` throughout `app.py`; `HTTPException` with meaningful status codes (422, 500, 502, 503); `ValidationReport` dataclass in `cleaning.py`
-- **Dependency management** — all dependencies pinned with exact versions in `requirements.txt` for full reproducibility
-- **Documentation** — docstrings on all public functions and classes; `LESSONS.md` for engineering patterns; this README
-- **Code quality** — PEP 8 enforced via `flake8` (configured in `.flake8`); runs automatically in every CI build
-- **Testing** — integration test suite in `test_api.py` covering all 4 endpoints; runs in CI against a live Docker container
-- **Security** — `.env` excluded in `.gitignore`; no secrets or API keys in source code; REE API is fully public with no authentication
+- **`PYTHONPATH=src` always** — the `grid_risk` package lives under `src/`. Every script requires it. Add `export PYTHONPATH=src` to your `~/.zshrc` to avoid repeating it.
+- **Never shuffle time series data** — the train/val/test split is strictly chronological. Shuffling would leak future data into training and invalidate all metrics.
+- **Quantile RMSE is expected to be worse than baseline** — the model predicts the 90th percentile on purpose. Use the Cost Matrix Penalty and F₃ Score as the real evaluation criteria, not RMSE alone.
+- **Always run `make promote` before `make docker-build`** — Docker bakes model artifacts in at build time. Skipping promotion means serving a stale model.
+- **Config, not constants** — all API URLs, column names, date ranges, and thresholds live in `config/settings.json` (loaded via `src/grid_risk/config.py`). Change settings there, not inside scripts.
+- **Sample data for CI** — `train.py` uses `data/sample_*.parquet` so the pipeline runs in under 2 minutes on GitHub Actions without hitting external APIs.
 
 ---
 
 ## Troubleshooting
 
-- `ModuleNotFoundError: No module named 'grid_risk'` — run `export PYTHONPATH=src` (Mac/Linux) or `$env:PYTHONPATH="src"` (Windows)
-- Docker port already in use — run `docker stop grid-risk && docker rm grid-risk` then re-run
-- CORS error in browser when using webapp — ensure `CORSMiddleware` is added in `app.py` and the Docker image is rebuilt
-- GitHub push asks for password — use a Personal Access Token (PAT) with `repo` scope instead of your password
-- Render shows unhealthy — confirm `curl http://localhost:9696/health` returns `"status": "ok"` locally first
-- `models/` folder missing — run `mkdir -p models && cp data/artifacts/lgbm_model.joblib models/ && cp data/artifacts/risk_index_fit.joblib models/`
-- REE API timeout during extraction — the script retries automatically up to 3 times with exponential backoff; re-run if it still fails
-- Negative RMSE skill score — expected with quantile regression (α = 0.90), the model intentionally overshoots; use cost penalty and F₃ to evaluate instead
+| Error | Fix |
+|-------|-----|
+| `ModuleNotFoundError: No module named 'grid_risk'` | Run `export PYTHONPATH=src` (Mac/Linux) or `$env:PYTHONPATH="src"` (Windows) |
+| Docker port already in use | Run `make docker-stop` then `make docker-run` |
+| CORS error in browser when using webapp | Ensure `CORSMiddleware` is added in `app.py` and Docker image is rebuilt |
+| GitHub push asks for password | Use a Personal Access Token (PAT) with `repo` scope instead of your password |
+| Render shows unhealthy | Confirm `curl http://localhost:9696/health` returns `"status": "ok"` locally first |
+| `models/` folder missing artifacts | Run `make promote` after training |
+| REE API timeout during extraction | The script retries automatically up to 3 times with exponential backoff; re-run if it still fails |
+| Negative RMSE skill score | Expected with quantile regression (α = 0.90); use cost penalty and F₃ to evaluate instead |

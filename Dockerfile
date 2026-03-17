@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source code and application files
 COPY src/ src/
+COPY config/ config/
 COPY app.py .
 COPY run_id.txt .
 COPY webapp/ webapp/

@@ -30,9 +30,6 @@ mlruns/
 mlflow.db
 mlartifacts/
 
-# Model artifacts (baked into Docker)
-models/
-
 # Pytest
 .pytest_cache/
 

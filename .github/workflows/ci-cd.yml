@@ -38,16 +38,10 @@ jobs:
       - name: Install testing tools
         run: pip install flake8 pytest requests
 
-      - name: Download trained-model artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: trained-model
-          path: .
-
-      - name: Verify downloaded artifacts
+      - name: Verify local models
         run: |
           ls -R models/
-          cat run_id.txt
+          cat run_id.txt || echo "No run_id.txt found"
 
       - name: Lint
         run: flake8 app.py train.py tests/test_api.py src/

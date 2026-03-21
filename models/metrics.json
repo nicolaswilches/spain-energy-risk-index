@@ -1,0 +1,26 @@
+{
+  "mlflow_run_id": "daad93e965a44017bdaf2d0445ef0167",
+  "quantile_alpha": 0.9,
+  "n_optuna_trials": 30,
+  "best_params": {
+    "reg_alpha": 0.0013837070526011978,
+    "reg_lambda": 0.9646629919182438,
+    "num_leaves": 47,
+    "learning_rate": 0.04964766885338703,
+    "min_child_samples": 23
+  },
+  "test": {
+    "rmse": 0.17909951252372833,
+    "mae": 0.15515724800625189,
+    "r2": -0.12042215934984424,
+    "cost_penalty": 231,
+    "baseline_cost_penalty": 528,
+    "cost_reduction_pct": 56.25,
+    "f3_high": 0.8308383233532934,
+    "rmse_skill_score": -32.88574949967544
+  },
+  "baselines": {
+    "persistence_test_rmse": 0.1347770646574603,
+    "ridge_test_rmse": 0.12756603446177825
+  }
+}

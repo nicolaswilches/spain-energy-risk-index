@@ -1,0 +1,16 @@
+feature,importance
+forecast_demand_mw,368
+wind_speed_10m_max,309
+spot_price_eur_mwh,261
+risk_index_lag_1d,234
+risk_index_lag_7d,227
+temperature_2m_max,202
+shortwave_radiation_sum,154
+day_of_week,138
+temperature_2m_min,118
+month,101
+precipitation_sum,95
+hdd,40
+cdd,22
+is_weekend,0
+is_holiday,0

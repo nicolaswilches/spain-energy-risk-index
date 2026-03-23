@@ -35,7 +35,7 @@ A production-grade machine learning system that forecasts the **next-day systemi
 
 Red Eléctrica de España (REE), the national transmission system operator, currently lacks a unified, day-ahead measure of systemic grid tension. While static forecasts for demand and generation exist in isolation, they fail to capture the overall stress the grid will face the following day.
 
-As renewable energy penetration increases, the grid becomes more volatile. This system provides an **early-warning mechanism** — a single Next-Day Grid Risk Index — enabling REE operators to:
+As renewable energy penetration increases, the grid becomes more volatile. This system provides an **early-warning mechanism**, a single Next-Day Grid Risk Index, enabling REE operators to:
 
 - Plan flexible energy source dispatch proactively
 - Avoid costly last-minute emergency interventions (e.g. emergency gas-plant activation)
@@ -49,26 +49,51 @@ The model uses **quantile regression (α = 0.90)**, making it deliberately pessi
 
 The system follows a two-stage approach.
 
-**Stage 1 — Grid Risk Index Construction**
+**Stage 1: Grid Risk Index Construction**
 
-Three core stress factors are computed from daily REE data:
+**Three** core stress factors are computed from daily REE data:
 
-- `flexibility_share` = (combined_cycle + hydro) / total_generation — proportion of dispatchable generation
-- `demand_forecast_error` = actual_demand − forecast_demand — real-time scheduling deviation
-- `net_load` = actual_demand − (wind + solar_pv) — structural pressure on flexible sources
+1. **Flexibility share:** Proportion of total energy generation coming from dispatchable sources. It quantifies how much energy generation can adapt to changing conditions.
+  `flexibility_share = (combined_cycle + hydro) / total_generation`
+
+2. **Demand Forecast Error:** Measures the deviation in actual energy demand compared to the REE's day-ahead demand forecasts.
+  `demand_forecast_error = actual_demand − forecast_demand`
+
+3. **Net Load:** Total energy demand not covered by flexibile sources such as Wind and Solar PV. It quantified the structural pressure on flexible sources.
+`net_load = actual_demand − (wind + solar_pv)`
 
 These are standardized and compressed into a single **Grid Risk Index** via PCA (PC1), then scaled to [0, 1] using MinMaxScaler. The PCA is fitted on training data only to prevent data leakage.
 
-**Stage 2 — Next-Day Forecasting**
+**Stage 2: Next-Day Forecasting**
 
 A LightGBM quantile regressor predicts tomorrow's risk index using 15 features:
 
-- REE forecast: `forecast_demand_mw`
-- Weather: `temperature_2m_max`, `temperature_2m_min`, `wind_speed_10m_max`, `shortwave_radiation_sum`, `precipitation_sum`
-- Derived weather: `hdd` (heating degree days), `cdd` (cooling degree days)
-- Calendar: `day_of_week`, `month`, `is_weekend`, `is_holiday`
-- Spot price: `spot_price_eur_mwh`
-- Temporal lags: `risk_index_lag_1d`, `risk_index_lag_7d`
+**REE forecast:**\
+ 1.`forecast_demand_mw`
+
+**Weather**\
+  2. `temperature_2m_max`\
+  3. `temperature_2m_min`\
+  4. `wind_speed_10m_max`\
+  5. `shortwave_radiation_sum`\
+  6. `precipitation_sum`
+
+**Derived weather**\
+  7. `hdd` (heating degree days)\
+  8. `cdd` (cooling degree days)
+
+**Calendar**\
+  9. `day_of_week`\
+  10. `month`\
+  11. `is_weekend`\
+  12. `is_holiday`
+
+**Spot price**\
+  13. `spot_price_eur_mwh`
+
+**Temporal lags**\
+  14. `risk_index_lag_1d`\
+  15. `risk_index_lag_7d`
 
 **Risk Categories (5-tier):**
 
@@ -153,20 +178,25 @@ spain-energy-risk-index/
 Ensure the following tools are installed before starting.
 
 **Python 3.12**
+
 ```bash
 python --version   # must show 3.12.x
 ```
+
 Download from [python.org](https://www.python.org/downloads/) if needed.
 
 **Git**
+
 ```bash
 git --version
 ```
 
 **Docker Desktop**
+
 ```bash
 docker --version
 ```
+
 Download from [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop). Make sure Docker Desktop is **running** before building images.
 
 ---
@@ -174,12 +204,14 @@ Download from [docker.com/products/docker-desktop](https://www.docker.com/produc
 ## Setup
 
 ### 1. Clone the repository
+
 ```bash
 git clone https://github.com/nicolaswilches/spain-energy-risk-index.git
 cd spain-energy-risk-index
 ```
 
 ### 2. Create and activate a virtual environment
+
 ```bash
 # Create
 python3.12 -m venv .venv
@@ -192,11 +224,13 @@ source .venv/bin/activate
 ```
 
 ### 3. Install dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
 Verify the install:
+
 ```bash
 python -c "import pandas, sklearn, lightgbm, mlflow, fastapi; print('OK')"
 ```
@@ -204,6 +238,7 @@ python -c "import pandas, sklearn, lightgbm, mlflow, fastapi; print('OK')"
 ### 4. Set PYTHONPATH
 
 The `grid_risk` package lives under `src/`. All scripts require this to be set:
+
 ```bash
 # Mac/Linux
 export PYTHONPATH=src
@@ -237,6 +272,7 @@ PYTHONPATH=src python scripts/run_extraction.py --start 2021-01-01 --end 2025-12
 **Output:** `data/merged_daily_data.parquet`
 
 Data streams fetched:
+
 - REE demand (hourly → daily mean): actual and forecasted demand in MW
 - REE generation mix (daily): wind, solar PV, hydro, combined cycle, nuclear
 - REE spot price (hourly → daily mean): EUR/MWh
@@ -244,7 +280,7 @@ Data streams fetched:
 
 ---
 
-### Phase 2 — Feature Engineering
+### Phase 2: Feature Engineering
 
 Computes the three core risk factors, fits the PCA-based Grid Risk Index on training data only, assigns risk categories, and adds lag features.
 
@@ -254,6 +290,7 @@ make features
 ```
 
 **Output:**
+
 ```
 data/train.parquet                    # training set  (≤ 2023-12-31)
 data/val.parquet                      # validation set (2024-01-01 to 2024-06-30)
@@ -262,13 +299,13 @@ data/daily_features.parquet           # full feature matrix
 data/artifacts/risk_index_fit.joblib  # fitted PCA pipeline + thresholds
 ```
 
-The chronological split is strict — no shuffling — to prevent data leakage.
+The chronological split is strict with no shuffling to prevent data leakage.
 
 ---
 
-### Phase 3 — Model Training
+### Phase 3: Model Training
 
-Trains three models in sequence (persistence baseline → Ridge baseline → LightGBM with Optuna tuning) and evaluates on the held-out chronological test set.
+Trains three models in sequence (persistence baseline, then the Ridge baseline and finally the LightGBM with Optuna tuning) and evaluates on the held-out chronological test set.
 
 ```bash
 # Full training with 30 Optuna hyperparameter trials (recommended, ~5–10 min)
@@ -284,6 +321,7 @@ PYTHONPATH=src python train.py --quantile-alpha 0.95
 ```
 
 **Output:**
+
 ```
 data/artifacts/lgbm_model.joblib           # trained LightGBM model
 data/artifacts/ridge_model.joblib          # Ridge baseline
@@ -294,10 +332,11 @@ run_id.txt                                 # MLflow run ID
 ```
 
 Evaluation metrics printed to terminal:
-- **RMSE Skill Score** — % improvement over persistence baseline
-- **Cost Matrix Penalty** — FN = 10 pts, FP = 1 pt asymmetric cost
-- **F₃ Score (Extreme class)** — recall weighted 9× over precision
-- **RMSE / MAE / R²** — standard regression metrics
+
+- **RMSE Skill Score:** Percentual improvement over persistence baseline.
+- **Cost Matrix Penalty:** False Negatives = 10 pts, False Positives = 1 pt asymmetric cost.
+- **F₃ Score (Extreme class):** Recall weighted 9× over precision.
+- **RMSE / MAE / R²:** Standard regression evaluation metrics.
 
 ---
 
@@ -316,23 +355,27 @@ This copies `lgbm_model.joblib`, `risk_index_fit.joblib`, `metrics.json`, and `f
 ## Running with Docker
 
 ### Build the image
+
 ```bash
 make docker-build
 # or: docker build -t grid-risk-app .
 ```
 
 ### Run the container
+
 ```bash
 make docker-run
 # or: docker run -d -p 9696:9696 --name grid-risk grid-risk-app
 ```
 
 ### Verify it started correctly
+
 ```bash
 curl http://localhost:9696/health
 ```
 
 Expected response:
+
 ```json
 {
   "status": "ok",
@@ -343,6 +386,7 @@ Expected response:
 ```
 
 ### Make a prediction
+
 ```bash
 curl -X POST http://localhost:9696/predict \
   -H "Content-Type: application/json" \
@@ -350,6 +394,7 @@ curl -X POST http://localhost:9696/predict \
 ```
 
 Expected response:
+
 ```json
 {
   "date": "2026-03-15",
@@ -360,6 +405,7 @@ Expected response:
 ```
 
 ### Stop and remove the container
+
 ```bash
 make docker-stop
 # or: docker stop grid-risk && docker rm grid-risk
@@ -369,7 +415,7 @@ make docker-stop
 
 ## Web App
 
-A lightweight frontend is included at `webapp/index.html`. It requires no server — open it directly in a browser while the Docker container is running.
+A lightweight frontend is included at `webapp/index.html`. It requires no server. Open it directly in a browser while the Docker container is running.
 
 ```bash
 # Mac
@@ -385,6 +431,7 @@ start webapp/index.html
 The app connects to `http://localhost:9696` by default. Select a target date and click **Predict Risk** to get a live prediction with a visual risk gauge and colour-coded category badge.
 
 To point the webapp at the production Render deployment, update the default value in `webapp/index.html`:
+
 ```html
 <input type="text" id="apiUrl" value="https://spain-grid-risk.onrender.com" />
 ```
@@ -406,6 +453,7 @@ Returns a welcome message and link to the docs.
 Returns model load status. Used for liveness and readiness checks.
 
 **Response:**
+
 ```json
 {
   "status": "ok",
@@ -420,6 +468,7 @@ Returns model load status. Used for liveness and readiness checks.
 Fetches the last 10 days of live data from REE and Open-Meteo, computes features, and returns a risk prediction for the target date.
 
 **Request body:**
+
 ```json
 {
   "target_date": "2026-03-15"
@@ -427,6 +476,7 @@ Fetches the last 10 days of live data from REE and Open-Meteo, computes features
 ```
 
 **Response:**
+
 ```json
 {
   "date": "2026-03-15",
@@ -437,18 +487,20 @@ Fetches the last 10 days of live data from REE and Open-Meteo, computes features
 ```
 
 Response fields:
-- `date` — the date predicted for (ISO 8601)
-- `risk_index` — predicted quantile risk score, float between 0.0 and 1.0
-- `risk_category` — one of: `Low` / `Stable` / `Elevated` / `Severe` / `Extreme`
-- `model_version` — MLflow run ID of the model in production
+
+- `date`: the date predicted for (ISO 8601)
+- `risk_index`: predicted quantile risk score, float between 0.0 and 1.0
+- `risk_category`: one of: `Low` / `Stable` / `Elevated` / `Severe` / `Extreme`
+- `model_version`: MLflow run ID of the model in production
 
 Error responses:
-- `422` — invalid date format
-- `503` — model not loaded, check `/health`
-- `502` — could not fetch data from REE API
-- `500` — prediction failed, see server logs
 
-> Each `/predict` call fetches live data from external APIs. Expect a response time of 5–15 seconds.
+- `422`: invalid date format
+- `503`: model not loaded, check `/health`
+- `502`: could not fetch data from REE API
+- `500`: prediction failed, see server logs
+
+Each `/predict` call fetches live data from external APIs. Expect a response time of 5–15 seconds.
 
 ---
 
@@ -480,6 +532,7 @@ Push to main
 ```
 
 To trigger the pipeline manually without a push:
+
 1. Go to your GitHub repo → **Actions** tab
 2. Select **CI/CD Pipeline**
 3. Click **Run workflow**
@@ -491,16 +544,41 @@ To trigger the pipeline manually without a push:
 All training runs are tracked locally with MLflow using a SQLite backend.
 
 ### View the MLflow UI
+
 ```bash
 mlflow ui --backend-store-uri sqlite:///mlflow.db
 # Open http://localhost:5000
 ```
 
 What is tracked per run:
-- **Parameters** — `quantile_alpha`, `n_optuna_trials`, `train_rows`, `val_rows`, `test_rows`, best Optuna hyperparams
-- **Baselines** — `persistence_val_rmse`, `persistence_test_rmse`, `ridge_val_rmse`, `ridge_test_rmse`
-- **Model metrics** — `test_rmse`, `test_mae`, `test_r2`, `test_cost_penalty`, `test_cost_reduction_pct`, `test_f3_high`, `test_rmse_skill_score`
-- **Artifacts** — trained LightGBM model logged via `mlflow.sklearn.log_model`
+
+**Parameters:**
+
+- `quantile_alpha`
+- `n_optuna_trials`
+- `train_rows`
+- `val_rows`
+- `test_rows`
+- Best Optuna hyperparameters.
+
+**Baselines:** 
+
+- `persistence_val_rmse`
+- `persistence_test_rmse`
+- `ridge_val_rmse`
+- `ridge_test_rmse`
+
+**Model metrics:**
+
+- `test_rmse`
+- `test_mae`
+- `test_r2`
+- `test_cost_penalty`
+- `test_cost_reduction_pct`
+- `test_f3_high`
+- `test_rmse_skill_score`
+
+**Artifacts:** Trained LightGBM model logged via `mlflow.sklearn.log_model`
 
 ---
 
@@ -509,17 +587,20 @@ What is tracked per run:
 Integration tests require the API server to be running (via Docker).
 
 ### Start the server
+
 ```bash
 make docker-run
 ```
 
 ### Run all tests
+
 ```bash
 make test
 # or: pytest tests/ -v
 ```
 
 What is tested:
+
 - `test_api.py::test_root_endpoint` — GET `/` returns 200 with message containing "Spain"
 - `test_api.py::test_health_endpoint` — GET `/health` returns `status: ok`, both model and risk_fit loaded
 - `test_api.py::test_predict_endpoint` — POST `/predict` returns valid `risk_index` in [0, 1] and a valid category
@@ -550,14 +631,14 @@ After each push to `main`, CI/CD pushes a new `:latest` image to GHCR. To deploy
 
 ---
 
-## Tips & Best Practices
+## Tips and Best Practices
 
-- **`PYTHONPATH=src` always** — the `grid_risk` package lives under `src/`. Every script requires it. Add `export PYTHONPATH=src` to your `~/.zshrc` to avoid repeating it.
-- **Never shuffle time series data** — the train/val/test split is strictly chronological. Shuffling would leak future data into training and invalidate all metrics.
-- **Quantile RMSE is expected to be worse than baseline** — the model predicts the 90th percentile on purpose. Use the Cost Matrix Penalty and F₃ Score as the real evaluation criteria, not RMSE alone.
-- **Always run `make promote` before `make docker-build`** — Docker bakes model artifacts in at build time. Skipping promotion means serving a stale model.
-- **Config, not constants** — all API URLs, column names, date ranges, and thresholds live in `config/settings.json` (loaded via `src/grid_risk/config.py`). Change settings there, not inside scripts.
-- **Sample data for CI** — `train.py` uses `data/sample_*.parquet` so the pipeline runs in under 2 minutes on GitHub Actions without hitting external APIs.
+- **`PYTHONPATH=src` always:** the `grid_risk` package lives under `src/`. Every script requires it. Add `export PYTHONPATH=src` to your `~/.zshrc` to avoid repeating it.
+- **Never shuffle time series data:** the train/val/test split is strictly chronological. Shuffling would leak future data into training and invalidate all metrics.
+- **Quantile RMSE is expected to be worse than baseline.** The model predicts the 90th percentile on purpose. Use the Cost Matrix Penalty and F₃ Score as the real evaluation criteria, not RMSE alone.
+- **Always run `make promote` before `make docker-build`**. Docker bakes model artifacts in at build time. Skipping promotion means serving a stale model.
+- **Config, not constants.** All API URLs, column names, date ranges, and thresholds live in `config/settings.json` (loaded via `src/grid_risk/config.py`). Change settings there, not inside scripts.
+- **Sample data for CI.** `train.py` uses `data/sample_*.parquet` so the pipeline runs in under 2 minutes on GitHub Actions without hitting external APIs.
 
 ---
 

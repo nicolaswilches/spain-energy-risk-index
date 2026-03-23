@@ -410,13 +410,19 @@ def risk_history(days: int = 10):
                 continue
             ri_val = float(np.clip(ri, 0.0, 1.0))
             cat = assign_risk_category(np.array([ri_val]), risk_fit.thresholds)[0]
-            result.append(
-                {
-                    "date": str(d),
-                    "risk_index": round(ri_val, 4),
-                    "risk_category": cat,
-                }
-            )
+            item: dict = {
+                "date": str(d),
+                "risk_index": round(ri_val, 4),
+                "risk_category": cat,
+            }
+            if d in factors.index:
+                fs = factors.loc[d, "flexibility_share"]
+                fe = factors.loc[d, "demand_forecast_error"]
+                nl = factors.loc[d, "net_load"]
+                item["flexibility_share"] = None if pd.isna(fs) else round(float(fs), 4)
+                item["demand_forecast_error"] = None if pd.isna(fe) else round(float(fe), 2)
+                item["net_load"] = None if pd.isna(nl) else round(float(nl), 2)
+            result.append(item)
 
         # Return up to `days` most recent entries
         return {"history": result[-days:]}

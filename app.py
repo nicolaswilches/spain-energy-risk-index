@@ -1,4 +1,5 @@
-"""FastAPI service for Spain Energy Grid Risk Index prediction.
+"""
+FastAPI service for Spain Energy Grid Risk Index prediction.
 
 Accepts a target date and fetches live data from REE + Open-Meteo APIs
 to produce a next-day risk forecast using the trained LightGBM model.
@@ -54,10 +55,8 @@ from grid_risk.model import predict
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Global state (loaded at startup)
-# ---------------------------------------------------------------------------
 
+# Global state (loaded at startup)
 model: Optional[Any] = None
 risk_fit: Optional[RiskIndexFit] = None
 run_id: Optional[str] = None
@@ -68,11 +67,7 @@ LGBM_MODEL_PATH = MODEL_DIR / "lgbm_model.joblib"
 RUN_ID_PATH = Path("run_id.txt")
 
 
-# ---------------------------------------------------------------------------
 # Pydantic schemas
-# ---------------------------------------------------------------------------
-
-
 class PredictionRequest(BaseModel):
     target_date: date = Field(
         ...,
@@ -101,11 +96,7 @@ class PredictionResponse(BaseModel):
     model_version: str
 
 
-# ---------------------------------------------------------------------------
 # Data fetching helpers (stateless, fetch per-request)
-# ---------------------------------------------------------------------------
-
-
 def _fetch_recent_data(target_date: date) -> pd.DataFrame:
     """
     Fetch the last 10 days of actual data from REE + Open-Meteo.
@@ -173,7 +164,9 @@ def _fetch_recent_data(target_date: date) -> pd.DataFrame:
 
 
 def _fetch_forecast_weather(target_date: date) -> pd.DataFrame | None:
-    """Fetch weather forecast for a specific date from Open-Meteo forecast API."""
+    """
+    Fetch weather forecast for a specific date from Open-Meteo forecast API.
+    """
     import httpx
 
     try:
@@ -214,7 +207,8 @@ def _build_features(
     target_date: date,
     fit: RiskIndexFit,
 ) -> pd.DataFrame:
-    """Build the 15-feature vector for the target date.
+    """
+    Build the 15-feature vector for the target date.
 
     Computes risk_index for all recent days using the fitted PCA pipeline,
     then derives lag features for the target date.
@@ -253,11 +247,7 @@ def _build_features(
     return row[FEATURE_NAMES]
 
 
-# ---------------------------------------------------------------------------
 # Lifespan: load model at startup
-# ---------------------------------------------------------------------------
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global model, risk_fit, run_id
@@ -297,10 +287,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-# ---------------------------------------------------------------------------
 # FastAPI app
-# ---------------------------------------------------------------------------
-
 app = FastAPI(
     title="Spain Energy Grid Risk Index",
     description=(
@@ -420,7 +407,9 @@ def risk_history(days: int = 10):
                 fe = factors.loc[d, "demand_forecast_error"]
                 nl = factors.loc[d, "net_load"]
                 item["flexibility_share"] = None if pd.isna(fs) else round(float(fs), 4)
-                item["demand_forecast_error"] = None if pd.isna(fe) else round(float(fe), 2)
+                item["demand_forecast_error"] = (
+                    None if pd.isna(fe) else round(float(fe), 2)
+                )
                 item["net_load"] = None if pd.isna(nl) else round(float(nl), 2)
             result.append(item)
 
@@ -441,10 +430,6 @@ def risk_history(days: int = 10):
 # This serves index.html at the root "/" automatically
 app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")
 
-
-# ---------------------------------------------------------------------------
-# Local development
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     import uvicorn

@@ -23,11 +23,7 @@ import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-from grid_risk.features import (
-    assign_risk_category,
-    feature_names,
-    RiskIndexFit
-)
+from grid_risk.features import assign_risk_category, feature_names, RiskIndexFit
 
 from grid_risk.model import (
     cost_matrix_penalty,
@@ -53,11 +49,11 @@ def load_data(full: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFr
     Load train/val/test splits.
     """
     prefix = "" if full else "sample_"
-    train = pd.read_parquet(DATA / f"{prefix}train.parquet")
-    val = pd.read_parquet(DATA / f"{prefix}val.parquet")
-    test = pd.read_parquet(DATA / f"{prefix}test.parquet")
+    train = pd.read_parquet(DATA / f"{prefix}train.parquet")  # load train
+    val = pd.read_parquet(DATA / f"{prefix}val.parquet")  # load val
+    test = pd.read_parquet(DATA / f"{prefix}test.parquet")  # load test
     print(f"Data loaded: train={len(train)}, val={len(val)}, test={len(test)}")
-    return train, val, test
+    return train, val, test  # returns dfs for each one
 
 
 def fit_risk_index_from_train(train: pd.DataFrame) -> RiskIndexFit:
@@ -65,32 +61,35 @@ def fit_risk_index_from_train(train: pd.DataFrame) -> RiskIndexFit:
     Fit the PCA-based risk index pipeline from training data.
     """
     factor_cols = ["flexibility_share", "demand_forecast_error", "net_load"]
-    factors = train[factor_cols].dropna()
+    factors = train[factor_cols].dropna()  # drop na for the core factors in train
 
-    scaler = StandardScaler().fit(factors)
+    scaler = StandardScaler().fit(factors)  # z-score normalization of factors
     scaled = scaler.transform(factors)
 
-    pca = PCA(n_components=3).fit(scaled)
-    pc1 = pca.transform(scaled)[:, 0].reshape(-1, 1)
+    pca = PCA(n_components=3).fit(scaled)  # PCA with 3 components (same as factors)
+    pc1 = pca.transform(scaled)[:, 0].reshape(-1, 1)  # combination of 2 factors
 
     minmax = MinMaxScaler().fit(pc1)
-    risk_train = minmax.transform(pc1).ravel()
+    risk_train = minmax.transform(pc1).ravel()  # adjust scale from 0 to 1
 
+    # calculate percentiles for labels
     p20 = float(np.percentile(risk_train, 20))
     p40 = float(np.percentile(risk_train, 40))
     p60 = float(np.percentile(risk_train, 60))
     p80 = float(np.percentile(risk_train, 80))
 
+    # return instance of RiskIndexFit class wi
     return RiskIndexFit(
-        scaler=scaler,
-        pca=pca,
-        minmax=minmax,
-        pc1_weights=pca.components_[0],
-        thresholds=(p20, p40, p60, p80),
+        scaler=scaler,  # contains StandardScaler object with mean and std
+        pca=pca,  # returns PCA model with learned variance patterns
+        minmax=minmax,  # the min and max values to scale 0 to 1
+        pc1_weights=pca.components_[0],  # weights of each factor as array
+        thresholds=(p20, p40, p60, p80),  # percetiles of risk index
     )
 
 
 def main() -> None:
+    # define the args that can be passed to train.py
     parser = argparse.ArgumentParser(description="Train grid risk model")
     parser.add_argument("--full", action="store_true", help="Use full dataset")
     parser.add_argument("--n-trials", type=int, default=30, help="Optuna trials")
@@ -100,16 +99,16 @@ def main() -> None:
 
     train, val, test = load_data(full=args.full)
 
-    # ------------------------------------------------------------------
     # Fit or load Risk Index
     risk_fit_path = ARTIFACTS / "risk_index_fit.joblib"
-    if args.full and risk_fit_path.exists():
+    if args.full and risk_fit_path.exists():  # load if model already trained
         fit: RiskIndexFit = joblib.load(risk_fit_path)
         print("Loaded existing risk_index_fit from artifacts")
     else:
-        fit = fit_risk_index_from_train(train)
+        fit = fit_risk_index_from_train(train)  # fit if training first time
         print("Fitted risk index from training data")
 
+    # assing y and x for each subset
     thresholds = fit.thresholds
     X_train = train[feature_names]
     y_train = train["risk_index"].values
@@ -118,7 +117,6 @@ def main() -> None:
     X_test = test[feature_names]
     y_test = test["risk_index"].values
 
-    # ------------------------------------------------------------------
     # MLflow setup (local file-based)
     mlflow.set_tracking_uri(f"sqlite:///{ROOT / 'mlflow.db'}")
     mlflow.set_experiment(MLFLOW_EXPERIMENT)
@@ -128,49 +126,59 @@ def main() -> None:
         print(f"MLflow run ID: {run_id}")
 
         mlflow.log_param("quantile_alpha", args.quantile_alpha)
-        mlflow.log_param("n_optuna_trials", args.n_trials if not args.skip_tuning else 0)
+        mlflow.log_param(
+            "n_optuna_trials", args.n_trials if not args.skip_tuning else 0
+        )
         mlflow.log_param("dataset", "full" if args.full else "sample")
         mlflow.log_param("train_rows", len(train))
         mlflow.log_param("val_rows", len(val))
         mlflow.log_param("test_rows", len(test))
 
-        # --------------------------------------------------------------
-        # 1. Baselines
+        # 1. Baselines: persistance baseline and ridge
         print("\n-- Baseline Comparisons --")
         persist_test = persistence_baseline(y_test, test["risk_index_lag_1d"].values)
+        # we only want evaluation metric for the ridge
         _, ridge_test = ridge_baseline(X_train.values, y_train, X_test.values, y_test)
 
+        # log rmse for both baselines on mlflow
         mlflow.log_metric("persistence_test_rmse", persist_test.rmse)
         mlflow.log_metric("ridge_test_rmse", ridge_test.rmse)
 
+        # print the results of rsme
         print(f"  Persistence Test RMSE: {persist_test.rmse:.4f}")
         print(f"  Ridge Test RMSE:       {ridge_test.rmse:.4f}")
 
-        # --------------------------------------------------------------
         # 2. Optuna tuning
         best_params: dict = {}
-        if not args.skip_tuning:
+        if not args.skip_tuning:  # depedning on the args configuation provided
             print(f"\n-- Optuna Tuning ({args.n_trials} trials) --")
             optuna.logging.set_verbosity(optuna.logging.WARNING)
             study = optuna.create_study(direction="minimize")
             objective = create_optuna_objective(
-                X_train.values, y_train, X_val.values, y_val, quantile_alpha=args.quantile_alpha
+                X_train.values,
+                y_train,
+                X_val.values,
+                y_val,
+                quantile_alpha=args.quantile_alpha,
             )
             study.optimize(objective, n_trials=args.n_trials)
-            best_params = study.best_params
+            best_params = study.best_params  # best parameters
             mlflow.log_metric("best_quantile_loss", study.best_value)
             mlflow.log_params({f"best_{k}": v for k, v in best_params.items()})
 
-        # --------------------------------------------------------------
         # 3. Train final LightGBM
         print("\n-- Training Final LightGBM --")
+        # train model with best parameters from optuna
         lgbm_model = train_lightgbm(
-            X_train.values, y_train, X_val.values, y_val,
-            params=best_params, quantile_alpha=args.quantile_alpha
+            X_train.values,
+            y_train,
+            X_val.values,
+            y_val,
+            params=best_params,
+            quantile_alpha=args.quantile_alpha,
         )
         mlflow.log_metric("best_iteration", lgbm_model.best_iteration_)
 
-        # --------------------------------------------------------------
         # 4. Evaluate on test set
         y_pred_test = predict(lgbm_model, X_test.values)
         y_baseline_test = test["risk_index_lag_1d"].values
@@ -187,8 +195,10 @@ def main() -> None:
         true_cat = assign_risk_category(y_test[mask], thresholds)
         baseline_cost = cost_matrix_penalty(true_cat, base_cat)
         cost_reduction = (
-            (1 - metrics.cost_penalty / baseline_cost) * 100
-        ) if baseline_cost > 0 else 0.0
+            ((1 - metrics.cost_penalty / baseline_cost) * 100)
+            if baseline_cost > 0
+            else 0.0
+        )
 
         mlflow.log_metric("test_rmse", metrics.rmse)
         mlflow.log_metric("test_mae", metrics.mae)
@@ -208,7 +218,6 @@ def main() -> None:
         print("\n-- Standard Metrics --")
         print(f"  RMSE: {metrics.rmse:.4f}  |  MAE: {metrics.mae:.4f}")
 
-    # ------------------------------------------------------------------
     # 5. Save artifacts to models/ for CI deployment
     if DEPLOYMENT_MODEL_DIR.exists():
         shutil.rmtree(DEPLOYMENT_MODEL_DIR)
@@ -233,15 +242,19 @@ def main() -> None:
             "rmse_skill_score": metrics.rmse_skill_score,
         },
     }
-    (DEPLOYMENT_MODEL_DIR / "metrics.json").write_text(json.dumps(metrics_dict, indent=2))
+    (DEPLOYMENT_MODEL_DIR / "metrics.json").write_text(
+        json.dumps(metrics_dict, indent=2)
+    )
 
     # Save the risk model mapping out data predictions locally (optional dev step)
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
-    test_preds = pd.DataFrame({
-        "y_true": y_test[mask],
-        "y_pred": y_pred_test[mask],
-        "y_baseline": y_baseline_test[mask]
-    })
+    test_preds = pd.DataFrame(
+        {
+            "y_true": y_test[mask],
+            "y_pred": y_pred_test[mask],
+            "y_baseline": y_baseline_test[mask],
+        }
+    )
     test_preds.to_parquet(ARTIFACTS / "test_predictions.parquet")
 
     # App root identifier
@@ -252,3 +265,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

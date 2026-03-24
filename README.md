@@ -7,7 +7,7 @@
 A production-grade machine learning system that forecasts the **next-day systemic risk** of Spain's electrical grid. The model predicts a continuous Grid Risk Index (0 = stable, 1 = critical) using a quantile LightGBM regressor trained on REE demand, generation mix, weather, and spot price data — deployed as a containerized FastAPI service with full CI/CD automation.
 
 > **Authors:**
-> Alberto Cabezudo · Madelyn Ehni · Gilles Hamers · Nicolás Higuera Wilches · Salah Mneimne
+> Alberto Cabezudo, Madelyn Ehni, Gilles Hamers, Nicolás Higuera Wilches, Salah Mneimne
 
 ---
 
@@ -59,7 +59,7 @@ The system follows a two-stage approach.
 2. **Demand Forecast Error:** Measures the deviation in actual energy demand compared to the REE's day-ahead demand forecasts.
   `demand_forecast_error = actual_demand − forecast_demand`
 
-3. **Net Load:** Total energy demand not covered by flexibile sources such as Wind and Solar PV. It quantified the structural pressure on flexible sources.
+3. **Net Load:** Total energy demand not covered by flexible sources such as Wind and Solar PV. It quantifies the structural pressure on flexible sources.
 `net_load = actual_demand − (wind + solar_pv)`
 
 These are standardized and compressed into a single **Grid Risk Index** via PCA (PC1), then scaled to [0, 1] using MinMaxScaler. The PCA is fitted on training data only to prevent data leakage.
@@ -146,7 +146,8 @@ spain-energy-risk-index/
 │   └── feature_importance.csv
 │
 ├── notebooks/
-│   └── etl_modeling.ipynb      # Exploratory analysis and model prototyping
+│   ├── etl_modeling.ipynb          # Exploratory analysis and model prototyping
+│   └── test_connection_ree.ipynb   # REE API connection tests
 │
 ├── tests/
 │   ├── test_api.py             # Integration tests for all FastAPI endpoints
@@ -156,9 +157,12 @@ spain-energy-risk-index/
 │   └── index.html              # Standalone frontend web app (no server required)
 │
 ├── docs/
-│   ├── LESSONS.md              # Engineering lessons learned
-│   ├── TASKS.md                # Project task tracking
-│   └── project_proposal/       # Original project proposal (PDF + LaTeX)
+│   ├── LESSONS.md                  # Engineering lessons learned
+│   ├── TASKS.md                    # Project task tracking
+│   ├── execution_plan.md           # Original execution plan
+│   ├── revised_execution_plan.md   # Updated execution plan
+│   ├── project_guidelines.pdf      # Course project guidelines
+│   └── project_proposal/           # Original project proposal (PDF + LaTeX)
 │
 ├── app.py                      # FastAPI prediction service (live REE + weather data)
 ├── train.py                    # CI training script (uses sample data, self-contained)
@@ -168,6 +172,11 @@ spain-energy-risk-index/
 ├── requirements.txt            # Pinned production dependencies
 ├── pyproject.toml              # Package metadata and optional dependencies
 ├── run_id.txt                  # MLflow run ID of the deployed model
+├── CLAUDE.md                   # AI assistant context for this project
+├── uv.lock                     # Pinned dependency versions (uv)
+├── .python-version             # Python version pin
+├── .flake8                     # Flake8 linter configuration
+├── .gitattributes              # Git line-ending rules
 └── .gitignore
 ```
 
@@ -428,15 +437,11 @@ xdg-open webapp/index.html
 start webapp/index.html
 ```
 
-The app connects to `http://localhost:9696` by default. Select a target date and click **Predict Risk** to get a live prediction with a visual risk gauge and colour-coded category badge.
+The app connects to `http://localhost:9696` by default. Click **Refresh Forecast** to get a live next-day prediction. The app automatically computes tomorrow's date — no date picker needed. The result shows a visual risk gauge and a colour-coded category badge.
 
-To point the webapp at the production Render deployment, update the default value in `webapp/index.html`:
+The live deployment is available at [https://spain-energy-risk-index.onrender.com](https://spain-energy-risk-index.onrender.com).
 
-```html
-<input type="text" id="apiUrl" value="https://spain-grid-risk.onrender.com" />
-```
-
-> CORS must be enabled in `app.py` (`CORSMiddleware`). Rebuild the Docker image after any `app.py` changes.
+> CORS is enabled in `app.py` via `CORSMiddleware`. Rebuild the Docker image after any `app.py` changes.
 
 ---
 
@@ -501,6 +506,38 @@ Error responses:
 - `500`: prediction failed, see server logs
 
 Each `/predict` call fetches live data from external APIs. Expect a response time of 5–15 seconds.
+
+### `GET /history`
+
+Returns the computed Grid Risk Index and core factors for the most recent N days, using live REE and weather data.
+
+**Query parameter:** `days` — integer, 3–30, default `10`
+
+**Response:**
+
+```json
+{
+  "history": [
+    {
+      "date": "2026-03-20",
+      "risk_index": 0.5813,
+      "risk_category": "Elevated",
+      "flexibility_share": 0.3421,
+      "demand_forecast_error": -312.50,
+      "net_load": 22847.30
+    }
+  ]
+}
+```
+
+Response fields per entry:
+
+- `date`: ISO 8601 date string
+- `risk_index`: computed risk score, float 0.0–1.0
+- `risk_category`: one of: `Low` / `Stable` / `Elevated` / `Severe` / `Extreme`
+- `flexibility_share`: ratio of dispatchable generation to total (0–1)
+- `demand_forecast_error`: actual minus forecast demand in MW (can be negative)
+- `net_load`: demand not covered by wind + solar PV, in MW
 
 ---
 
